@@ -23,6 +23,13 @@ class HangmanGame {
     }
 
     showLobby() {
+        // Clean up any active listeners
+        if (this.gamesListener) {
+            this.gamesListener();
+            this.gamesListener = null;
+        }
+        this.gamesBrowserTracked = false;
+        
         // Reset the game state when returning to lobby
         this.gameState = {
             status: 'lobby',
@@ -59,6 +66,11 @@ class HangmanGame {
                         <button onclick="game.joinGame()" 
                                 class="w-full bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 game-button">
                             Join Game
+                        </button>
+                        <div class="text-center text-gray-500">or</div>
+                        <button onclick="game.showGameBrowser()" 
+                                class="w-full bg-purple-500 text-white py-2 px-4 rounded-md hover:bg-purple-600 game-button">
+                            Browse Available Games
                         </button>
                     </div>
                 </div>
@@ -102,6 +114,10 @@ class HangmanGame {
             return;
         }
         
+        await this.joinGameById(gameId, playerName);
+    }
+
+    async joinGameById(gameId, playerName) {
         const user = (window.firebase && window.firebase.auth) ? firebase.auth().currentUser : null;
         if (!user) {
             alert('Not signed in yet. Please refresh and try again.');
@@ -132,6 +148,123 @@ class HangmanGame {
         } catch (err) {
             console.error('Failed to join game:', err);
             alert('Failed to join game. Please try again.');
+        }
+    }
+
+    async showGameBrowser() {
+        const playerName = document.getElementById('playerName').value.trim();
+        if (!playerName) {
+            alert('Please enter your name first!');
+            return;
+        }
+
+        const gameContainer = document.getElementById('gameContainer');
+        gameContainer.innerHTML = `
+            <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">Available Games</h2>
+                    <button onclick="game.showLobby()" 
+                            class="bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 game-button">
+                        Back to Lobby
+                    </button>
+                </div>
+                
+                <div id="gamesList" class="space-y-4">
+                    <div class="text-center text-gray-500">Loading games...</div>
+                </div>
+            </div>
+        `;
+
+        // Fetch and display available games
+        await this.loadAvailableGames(playerName);
+    }
+
+    async loadAvailableGames(playerName) {
+        try {
+            // Set up real-time listener for games in lobby
+            this.gamesListener = db.collection('games')
+                .where('status', '==', 'lobby')
+                .orderBy('hostName')
+                .limit(20)
+                .onSnapshot((snapshot) => {
+                    this.updateGamesList(snapshot, playerName);
+                }, (error) => {
+                    console.error('Error listening to games:', error);
+                    document.getElementById('gamesList').innerHTML = `
+                        <div class="text-center text-red-500 py-8">
+                            <p>Failed to load games. Please try again.</p>
+                            <button onclick="game.showLobby()" 
+                                    class="bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 game-button mt-4">
+                                Back to Lobby
+                            </button>
+                        </div>
+                    `;
+                });
+
+        } catch (error) {
+            console.error('Error setting up games listener:', error);
+            document.getElementById('gamesList').innerHTML = `
+                <div class="text-center text-red-500 py-8">
+                    <p>Failed to load games. Please try again.</p>
+                    <button onclick="game.showLobby()" 
+                            class="bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 game-button mt-4">
+                        Back to Lobby
+                    </button>
+                </div>
+            `;
+        }
+    }
+
+    updateGamesList(snapshot, playerName) {
+        const gamesList = document.getElementById('gamesList');
+        
+        if (snapshot.empty) {
+            gamesList.innerHTML = `
+                <div class="text-center text-gray-500 py-8">
+                    <p class="text-lg mb-4">No games available right now.</p>
+                    <button onclick="game.showLobby()" 
+                            class="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 game-button">
+                        Create a New Game
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        const gamesHtml = snapshot.docs.map(doc => {
+            const gameData = doc.data();
+            const gameId = doc.id;
+            const playerCount = Object.keys(gameData.players || {}).length;
+            const hostName = gameData.hostName || 'Unknown';
+            
+            return `
+                <div class="flex items-center justify-between bg-gray-50 p-4 rounded-lg border">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-4">
+                            <div>
+                                <h3 class="font-semibold text-lg">Game ${gameId}</h3>
+                                <p class="text-gray-600">Host: ${hostName}</p>
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                <p>Players: ${playerCount}</p>
+                                <p>Status: Waiting for players</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="game.joinGameById('${gameId}', '${playerName}')" 
+                            class="bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 game-button">
+                        Join Game
+                    </button>
+                </div>
+            `;
+        }).join('');
+
+        gamesList.innerHTML = gamesHtml;
+
+        // Track game browser usage (only on first load)
+        if (window.va && !this.gamesBrowserTracked) {
+            window.va('track', 'Game Browser Viewed', { gameCount: snapshot.size });
+            this.gamesBrowserTracked = true;
         }
     }
 
