@@ -181,6 +181,9 @@ class HangmanGame {
 
     async loadAvailableGames(playerName) {
         try {
+            // First, clean up any stale games
+            await this.cleanupStaleGames();
+            
             // Set up real-time listener for games in lobby
             this.gamesListener = db.collection('games')
                 .where('status', '==', 'lobby')
@@ -212,6 +215,47 @@ class HangmanGame {
                     </button>
                 </div>
             `;
+        }
+    }
+
+    async cleanupStaleGames() {
+        try {
+            // Find games that are either completed or haven't been active for 1 hour
+            const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+            
+            // Clean up completed games
+            const completedGames = await db.collection('games')
+                .where('status', '==', 'complete')
+                .get();
+            
+            const completedBatch = db.batch();
+            completedGames.docs.forEach(doc => {
+                completedBatch.delete(doc.ref);
+            });
+            
+            if (!completedGames.empty) {
+                await completedBatch.commit();
+                console.log(`Cleaned up ${completedGames.size} completed games`);
+            }
+            
+            // Clean up stale lobby games (older than 1 hour)
+            const staleGames = await db.collection('games')
+                .where('status', '==', 'lobby')
+                .where('createdAt', '<', oneHourAgo)
+                .get();
+            
+            const staleBatch = db.batch();
+            staleGames.docs.forEach(doc => {
+                staleBatch.delete(doc.ref);
+            });
+            
+            if (!staleGames.empty) {
+                await staleBatch.commit();
+                console.log(`Cleaned up ${staleGames.size} stale games`);
+            }
+            
+        } catch (error) {
+            console.error('Error cleaning up stale games:', error);
         }
     }
 
@@ -674,7 +718,9 @@ class HangmanGame {
             guessedLetters: [],
             incorrectGuesses: 0,
             displayWord: [],
-            currentTurn: null
+            currentTurn: null,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            lastActivity: firebase.firestore.FieldValue.serverTimestamp()
         };
         
         try {
@@ -715,6 +761,22 @@ class HangmanGame {
             } else {
                 this.showGameResult('win');
             }
+            
+            // Auto-cleanup completed games after 30 seconds
+            setTimeout(() => {
+                this.cleanupCompletedGame();
+            }, 30000);
+        }
+    }
+
+    async cleanupCompletedGame() {
+        if (!this.currentGameId) return;
+        
+        try {
+            await db.collection('games').doc(this.currentGameId).delete();
+            console.log('Cleaned up completed game:', this.currentGameId);
+        } catch (error) {
+            console.error('Failed to cleanup game:', error);
         }
     }
 }
