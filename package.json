@@ -1,0 +1,24 @@
+{
+  "name": "hangman",
+  "version": "1.0.0",
+  "description": "Hangman Multiplayer – Deploying to Vercel",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anoooj0/hangman.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/anoooj0/hangman/issues"
+  },
+  "homepage": "https://github.com/anoooj0/hangman#readme",
+  "dependencies": {
+    "@vercel/analytics": "^1.5.0"
+  }
+}

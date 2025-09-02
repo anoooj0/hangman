@@ -126,6 +126,8 @@ class HangmanGame {
             }, { merge: true });
 
             console.log(`Joined game ${gameId} as ${playerName}`);
+            // Track game join
+            if (window.va) window.va('track', 'Game Joined', { gameId });
             this.listenToGameChanges(gameId);
         } catch (err) {
             console.error('Failed to join game:', err);
@@ -241,6 +243,8 @@ class HangmanGame {
                 incorrectGuesses: 0
             });
             console.log('Game started with word:', secretWord);
+            // Track game start
+            if (window.va) window.va('track', 'Game Started', { gameId, wordLength: secretWord.length });
         } catch (err) {
             console.error('Failed to start game:', err);
             alert('Failed to start game.');
@@ -388,6 +392,24 @@ class HangmanGame {
                     currentTurn: status === 'complete' ? data.currentTurn : nextTurn,
                     status
                 });
+
+                // Track game events
+                if (window.va) {
+                    if (status === 'complete') {
+                        if (!hasUnderscore) {
+                            window.va('track', 'Game Won', { gameId, incorrectGuesses });
+                        } else {
+                            window.va('track', 'Game Lost', { gameId, incorrectGuesses });
+                        }
+                    } else {
+                        window.va('track', 'Letter Guessed', { 
+                            gameId, 
+                            letter, 
+                            isCorrect: word.includes(letter),
+                            incorrectGuesses 
+                        });
+                    }
+                }
             });
         } catch (err) {
             console.error('Guess failed:', err);
@@ -525,6 +547,8 @@ class HangmanGame {
         try {
             await db.collection('games').doc(gameId).set(gameData);
             console.log('Game created in Firebase:', gameId);
+            // Track game creation
+            if (window.va) window.va('track', 'Game Created', { gameId });
             this.listenToGameChanges(gameId);
         } catch (error) {
             console.error('Error creating game:', error);
