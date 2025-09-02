@@ -250,32 +250,66 @@ class HangmanGame {
     showGameBoard() {
         const gameContainer = document.getElementById('gameContainer');
         gameContainer.innerHTML = `
-            <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
+            <div class="max-w-6xl mx-auto bg-white rounded-lg shadow-md p-6">
                 <h2 class="text-2xl font-bold text-center mb-6">Hangman Game</h2>
                 
-                <!-- Game Status -->
-                <div class="text-center mb-6">
-                    <p class="text-lg text-gray-700">Incorrect Guesses: <span class="font-bold text-red-600">${this.gameState.incorrectGuesses}</span> / 6</p>
-                    <p class="text-lg text-gray-700">Current Turn: <span class="font-bold text-blue-600">${this.gameState.players[this.gameState.currentTurn]?.name || 'Unknown'}</span></p>
-                </div>
-                
-                <!-- Word Display -->
-                <div class="text-center mb-8">
-                    <div class="text-4xl font-mono font-bold text-gray-800 tracking-wider">
-                        ${this.gameState.displayWord.join(' ')}
+                <div class="flex flex-col lg:flex-row gap-8">
+                    <!-- Left side: Hangman Drawing -->
+                    <div class="flex-1 flex justify-center">
+                        <div class="w-80 h-80">
+                            ${this.generateHangmanDrawing()}
+                        </div>
+                    </div>
+                    
+                    <!-- Right side: Game Info -->
+                    <div class="flex-1">
+                        <!-- Game Status -->
+                        <div class="text-center mb-6">
+                            <p class="text-lg text-gray-700">Incorrect Guesses: <span class="font-bold text-red-600">${this.gameState.incorrectGuesses}</span> / 6</p>
+                            <p class="text-lg text-gray-700">Current Turn: <span class="font-bold text-blue-600">${this.gameState.players[this.gameState.currentTurn]?.name || 'Unknown'}</span></p>
+                        </div>
+                        
+                        <!-- Word Display -->
+                        <div class="text-center mb-8">
+                            <div class="text-4xl font-mono font-bold text-gray-800 tracking-wider">
+                                ${this.gameState.displayWord.join(' ')}
+                            </div>
+                        </div>
+                        
+                        <!-- Letter Grid -->
+                        <div class="grid grid-cols-7 gap-2 max-w-md mx-auto mb-6">
+                            ${this.generateLetterButtons()}
+                        </div>
+                        
+                        <!-- Game Info -->
+                        <div class="text-center text-sm text-gray-600">
+                            <p>Guessed Letters: ${this.gameState.guessedLetters.join(', ') || 'None'}</p>
+                        </div>
                     </div>
                 </div>
-                
-                <!-- Letter Grid -->
-                <div class="grid grid-cols-7 gap-2 max-w-md mx-auto mb-6">
-                    ${this.generateLetterButtons()}
-                </div>
-                
-                <!-- Game Info -->
-                <div class="text-center text-sm text-gray-600">
-                    <p>Guessed Letters: ${this.gameState.guessedLetters.join(', ') || 'None'}</p>
-                </div>
             </div>
+        `;
+    }
+
+    generateHangmanDrawing() {
+        const incorrectGuesses = this.gameState.incorrectGuesses || 0;
+        
+        return `
+            <svg viewBox="0 0 300 300" class="w-full h-full">
+                <!-- Gallows (always visible) -->
+                <line x1="50" y1="250" x2="150" y2="250" class="hangman-drawing" />
+                <line x1="100" y1="250" x2="100" y2="50" class="hangman-drawing" />
+                <line x1="100" y1="50" x2="200" y2="50" class="hangman-drawing" />
+                <line x1="200" y1="50" x2="200" y2="80" class="hangman-drawing" />
+                
+                <!-- Hangman parts (progressive) -->
+                ${incorrectGuesses >= 1 ? '<circle cx="200" cy="100" r="20" class="hangman-drawing" />' : ''}
+                ${incorrectGuesses >= 2 ? '<line x1="200" y1="120" x2="200" y2="180" class="hangman-drawing" />' : ''}
+                ${incorrectGuesses >= 3 ? '<line x1="200" y1="140" x2="180" y2="160" class="hangman-drawing" />' : ''}
+                ${incorrectGuesses >= 4 ? '<line x1="200" y1="140" x2="220" y2="160" class="hangman-drawing" />' : ''}
+                ${incorrectGuesses >= 5 ? '<line x1="200" y1="180" x2="180" y2="220" class="hangman-drawing" />' : ''}
+                ${incorrectGuesses >= 6 ? '<line x1="200" y1="180" x2="220" y2="220" class="hangman-drawing" />' : ''}
+            </svg>
         `;
     }
 
@@ -386,6 +420,12 @@ class HangmanGame {
         const guessedDisplay = document.querySelector('.text-sm.text-gray-600 p');
         if (guessedDisplay) {
             guessedDisplay.textContent = `Guessed Letters: ${this.gameState.guessedLetters.join(', ') || 'None'}`;
+        }
+        
+        // Update hangman drawing
+        const hangmanContainer = document.querySelector('.w-80.h-80');
+        if (hangmanContainer) {
+            hangmanContainer.innerHTML = this.generateHangmanDrawing();
         }
         
         // Update letter buttons
