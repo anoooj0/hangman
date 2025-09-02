@@ -1,0 +1,26 @@
+.hangman-drawing{
+    stroke: #374151;
+    stroke-width: 3;
+    fill: none;
+}
+
+.game-button{
+    transition: all 0.2s ease-in-out;
+}
+
+.game-button:hover{
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.letter-button {
+    width: 50px;
+    height: 50px;
+    font-size: 1.25rem;
+    font-weight: bold;
+}
+
+.letter-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

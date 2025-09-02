@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer Hangman</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div id="app" class="container mx-auto px-4 py-8">
+        <h1 class="text-4xl font-bold text-center text-gray-800 mb-8">
+            Multiplayer Hangman
+        </h1>
+        
+        <!-- Game container will go here -->
+        <div id="gameContainer">
+            <!-- Content will be dynamically added -->
+        </div>
+    </div>
+
+    <script src="scripts/app.js"></script>
+
+    <!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+
+<script>
+  // Your Firebase config will go here
+  const firebaseConfig = {
+  apiKey: "AIzaSyCac1xtLupTxmWKzURDy3t-DSPVscLfLOA",
+  authDomain: "hangman-multiplayer-6e30f.firebaseapp.com",
+  projectId: "hangman-multiplayer-6e30f",
+  storageBucket: "hangman-multiplayer-6e30f.appspot.com",
+  messagingSenderId: "747779569470",
+  appId: "1:747779569470:web:f2e9e4e87c3cb6e51e1e6f",
+  measurementId: "G-WDJBZF4HKE"
+};
+  
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  // Improve compatibility on certain networks/environments (fixes 400 on webchannel)
+  if (db && db.settings) {
+    try {
+      db.settings({ 
+        experimentalAutoDetectLongPolling: true,
+        experimentalForceLongPolling: true
+      });
+    } catch (e) {
+      console.warn('Failed to apply Firestore settings:', e);
+    }
+  }
+  const auth = firebase.auth();
+
+  console.log('Firebase initialized successfully!');
+  console.log('Database:', db);
+  console.log('Firebase SDK version:', firebase.SDK_VERSION);
+  console.log('App options:', firebase.app().options);
+
+  // Ensure we are authenticated (many rules require an auth context)
+  // Use SESSION persistence so each tab gets its own anonymous user (useful for local multiplayer testing)
+  auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+    .then(() => auth.signInAnonymously())
+    .then(() => {
+      console.log('Signed in anonymously with UID:', auth.currentUser && auth.currentUser.uid);
+    })
+    .catch((err) => {
+      console.error('Anonymous sign-in failed:', err);
+    });
+</script>
+</body>
+</html>

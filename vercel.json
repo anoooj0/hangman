@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "name": "hangman-multiplayer",
+  "public": true,
+  "builds": [
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "styles/**", "use": "@vercel/static" },
+    { "src": "scripts/**", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "/$1" }
+  ]
+}
+
+
