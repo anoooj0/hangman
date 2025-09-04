@@ -22,6 +22,30 @@ class HangmanGame {
         this.showLobby();
     }
 
+    async waitForAuth() {
+        return new Promise((resolve) => {
+            const auth = firebase.auth();
+            
+            // If already authenticated, return immediately
+            if (auth.currentUser) {
+                resolve(auth.currentUser);
+                return;
+            }
+            
+            // Wait for auth state to change
+            const unsubscribe = auth.onAuthStateChanged((user) => {
+                unsubscribe();
+                resolve(user);
+            });
+            
+            // Timeout after 10 seconds
+            setTimeout(() => {
+                unsubscribe();
+                resolve(null);
+            }, 10000);
+        });
+    }
+
     showLobby() {
         // Clean up any active listeners
         if (this.gamesListener) {
@@ -85,24 +109,40 @@ class HangmanGame {
             return;
         }
         
-        // Generate a simple game ID
-        const gameId = Math.random().toString(36).substring(2, 8).toUpperCase();
+        // Show loading state
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = 'Creating game...';
+        button.disabled = true;
         
-        // Set up the current player using Firebase Auth UID
-        const user = (window.firebase && window.firebase.auth) ? firebase.auth().currentUser : null;
-        if (!user) {
-            alert('Not signed in yet. Please refresh and try again.');
-            return;
+        try {
+            // Wait for authentication to complete
+            const user = await this.waitForAuth();
+            if (!user) {
+                alert('Authentication failed. Please refresh and try again.');
+                return;
+            }
+            
+            // Generate a simple game ID
+            const gameId = Math.random().toString(36).substring(2, 8).toUpperCase();
+            
+            this.currentPlayer = {
+                id: user.uid,
+                name: playerName,
+                isHost: true
+            };
+            this.currentGameId = gameId;
+            
+            // Create the game in Firebase
+            await this.createGameInFirebase(gameId, playerName);
+        } catch (error) {
+            console.error('Error in createGame:', error);
+            alert('Failed to create game. Please try again.');
+        } finally {
+            // Restore button state
+            button.textContent = originalText;
+            button.disabled = false;
         }
-        this.currentPlayer = {
-            id: user.uid,
-            name: playerName,
-            isHost: true
-        };
-        this.currentGameId = gameId;
-        
-        // Create the game in Firebase
-        await this.createGameInFirebase(gameId, playerName);
     }
 
     async joinGame() {
@@ -114,13 +154,29 @@ class HangmanGame {
             return;
         }
         
-        await this.joinGameById(gameId, playerName);
+        // Show loading state
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = 'Joining game...';
+        button.disabled = true;
+        
+        try {
+            await this.joinGameById(gameId, playerName);
+        } catch (error) {
+            console.error('Error in joinGame:', error);
+            alert('Failed to join game. Please try again.');
+        } finally {
+            // Restore button state
+            button.textContent = originalText;
+            button.disabled = false;
+        }
     }
 
     async joinGameById(gameId, playerName) {
-        const user = (window.firebase && window.firebase.auth) ? firebase.auth().currentUser : null;
+        // Wait for authentication to complete
+        const user = await this.waitForAuth();
         if (!user) {
-            alert('Not signed in yet. Please refresh and try again.');
+            alert('Authentication failed. Please refresh and try again.');
             return;
         }
 
@@ -147,7 +203,21 @@ class HangmanGame {
             this.listenToGameChanges(gameId);
         } catch (err) {
             console.error('Failed to join game:', err);
-            alert('Failed to join game. Please try again.');
+            console.error('Error details:', err.message);
+            console.error('Error code:', err.code);
+            
+            let errorMessage = 'Failed to join game. Please try again.';
+            if (err.code === 'permission-denied') {
+                errorMessage = 'Permission denied. Please check your authentication.';
+            } else if (err.code === 'unavailable') {
+                errorMessage = 'Service temporarily unavailable. Please try again later.';
+            } else if (err.code === 'unauthenticated') {
+                errorMessage = 'Authentication required. Please refresh the page.';
+            } else if (err.code === 'not-found') {
+                errorMessage = 'Game not found. Please check the Game ID.';
+            }
+            
+            alert(errorMessage);
         }
     }
 
@@ -155,6 +225,13 @@ class HangmanGame {
         const playerName = document.getElementById('playerName').value.trim();
         if (!playerName) {
             alert('Please enter your name first!');
+            return;
+        }
+
+        // Wait for authentication to complete
+        const user = await this.waitForAuth();
+        if (!user) {
+            alert('Authentication failed. Please refresh and try again.');
             return;
         }
 
@@ -193,9 +270,21 @@ class HangmanGame {
                     this.updateGamesList(snapshot, playerName);
                 }, (error) => {
                     console.error('Error listening to games:', error);
+                    console.error('Error details:', error.message);
+                    console.error('Error code:', error.code);
+                    
+                    let errorMessage = 'Failed to load games. Please try again.';
+                    if (error.code === 'permission-denied') {
+                        errorMessage = 'Permission denied. Please check your authentication.';
+                    } else if (error.code === 'unavailable') {
+                        errorMessage = 'Service temporarily unavailable. Please try again later.';
+                    } else if (error.code === 'unauthenticated') {
+                        errorMessage = 'Authentication required. Please refresh the page.';
+                    }
+                    
                     document.getElementById('gamesList').innerHTML = `
                         <div class="text-center text-red-500 py-8">
-                            <p>Failed to load games. Please try again.</p>
+                            <p>${errorMessage}</p>
                             <button onclick="game.showLobby()" 
                                     class="bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 game-button mt-4">
                                 Back to Lobby
@@ -206,9 +295,21 @@ class HangmanGame {
 
         } catch (error) {
             console.error('Error setting up games listener:', error);
+            console.error('Error details:', error.message);
+            console.error('Error code:', error.code);
+            
+            let errorMessage = 'Failed to load games. Please try again.';
+            if (error.code === 'permission-denied') {
+                errorMessage = 'Permission denied. Please check your authentication.';
+            } else if (error.code === 'unavailable') {
+                errorMessage = 'Service temporarily unavailable. Please try again later.';
+            } else if (error.code === 'unauthenticated') {
+                errorMessage = 'Authentication required. Please refresh the page.';
+            }
+            
             document.getElementById('gamesList').innerHTML = `
                 <div class="text-center text-red-500 py-8">
-                    <p>Failed to load games. Please try again.</p>
+                    <p>${errorMessage}</p>
                     <button onclick="game.showLobby()" 
                             class="bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 game-button mt-4">
                         Back to Lobby
@@ -732,7 +833,18 @@ class HangmanGame {
         } catch (error) {
             console.error('Error creating game:', error);
             console.error('Error details:', error.message);
-            alert('Failed to create game. Please try again.');
+            console.error('Error code:', error.code);
+            
+            let errorMessage = 'Failed to create game. Please try again.';
+            if (error.code === 'permission-denied') {
+                errorMessage = 'Permission denied. Please check your authentication.';
+            } else if (error.code === 'unavailable') {
+                errorMessage = 'Service temporarily unavailable. Please try again later.';
+            } else if (error.code === 'unauthenticated') {
+                errorMessage = 'Authentication required. Please refresh the page.';
+            }
+            
+            alert(errorMessage);
         }
     }
 
