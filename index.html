@@ -69,11 +69,26 @@
   // Use SESSION persistence so each tab gets its own anonymous user (useful for local multiplayer testing)
   auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
     .then(() => auth.signInAnonymously())
-    .then(() => {
-      console.log('Signed in anonymously with UID:', auth.currentUser && auth.currentUser.uid);
+    .then((userCredential) => {
+      console.log('Signed in anonymously with UID:', userCredential.user.uid);
+      console.log('Authentication state confirmed');
     })
     .catch((err) => {
       console.error('Anonymous sign-in failed:', err);
+      console.error('Error code:', err.code);
+      console.error('Error message:', err.message);
+      
+      // Retry authentication after a short delay
+      setTimeout(() => {
+        console.log('Retrying authentication...');
+        auth.signInAnonymously()
+          .then((userCredential) => {
+            console.log('Retry successful - Signed in with UID:', userCredential.user.uid);
+          })
+          .catch((retryErr) => {
+            console.error('Retry failed:', retryErr);
+          });
+      }, 2000);
     });
 </script>
 </body>

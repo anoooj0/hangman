@@ -114,6 +114,11 @@ class HangmanGame {
                                 class="w-full bg-purple-500 text-white py-2 px-4 rounded-md hover:bg-purple-600 game-button">
                             Browse Available Games
                         </button>
+                        <div class="text-center text-gray-500">or</div>
+                        <button onclick="game.showAdminPanel()" 
+                                class="w-full bg-red-500 text-white py-2 px-4 rounded-md hover:bg-red-600 game-button">
+                            Admin Panel
+                        </button>
                     </div>
                 </div>
             `;
@@ -198,6 +203,9 @@ class HangmanGame {
             return;
         }
 
+        console.log('User authenticated:', user.uid);
+        console.log('Attempting to join game:', gameId);
+
         this.currentPlayer = { id: user.uid, name: playerName, isHost: false };
         this.currentGameId = gameId;
 
@@ -208,13 +216,19 @@ class HangmanGame {
                 alert('Game not found. Check the Game ID.');
                 return;
             }
+            
+            // Check if game is still in lobby status
+            const gameData = docSnap.data();
+            if (gameData.status !== 'lobby') {
+                alert('This game is no longer accepting new players.');
+                return;
+            }
+            
             // Add/merge this player into players map
-            await gameRef.set({
-                players: {
-                    [user.uid]: { name: playerName, score: 0, isHost: false }
-                },
+            await gameRef.update({
+                [`players.${user.uid}`]: { name: playerName, score: 0, isHost: false },
                 lastActivity: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+            });
 
             console.log(`Joined game ${gameId} as ${playerName}`);
             // Track game join
@@ -969,6 +983,226 @@ class HangmanGame {
             console.log('Cleaned up completed game:', this.currentGameId);
         } catch (error) {
             console.error('Failed to cleanup game:', error);
+        }
+    }
+
+    async showAdminPanel() {
+        const gameContainer = document.getElementById('gameContainer');
+        gameContainer.innerHTML = `
+            <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-red-600">Admin Panel</h2>
+                    <button onclick="game.showLobby()" 
+                            class="bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 game-button">
+                        Back to Lobby
+                    </button>
+                </div>
+                
+                <div class="space-y-6">
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-red-800 mb-2">Danger Zone</h3>
+                        <p class="text-red-600 mb-4">These actions will permanently delete data from the database.</p>
+                        
+                        <div class="space-y-3">
+                            <button onclick="game.deleteAllGames()" 
+                                    class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 game-button">
+                                Delete All Games
+                            </button>
+                            
+                            <button onclick="game.deleteCompletedGames()" 
+                                    class="bg-orange-600 text-white py-2 px-4 rounded-md hover:bg-orange-700 game-button">
+                                Delete Completed Games Only
+                            </button>
+                            
+                            <button onclick="game.deleteStaleGames()" 
+                                    class="bg-yellow-600 text-white py-2 px-4 rounded-md hover:bg-yellow-700 game-button">
+                                Delete Stale Games (30+ min old)
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-blue-800 mb-2">Database Statistics</h3>
+                        <div id="dbStats" class="text-gray-600">
+                            <p>Loading database statistics...</p>
+                        </div>
+                        <button onclick="game.loadDatabaseStats()" 
+                                class="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 game-button mt-2">
+                            Refresh Stats
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Load initial stats
+        this.loadDatabaseStats();
+    }
+
+    async loadDatabaseStats() {
+        const statsElement = document.getElementById('dbStats');
+        if (!statsElement) return;
+        
+        statsElement.innerHTML = '<p>Loading database statistics...</p>';
+        
+        try {
+            // Get all games
+            const allGames = await db.collection('games').get();
+            const completedGames = allGames.docs.filter(doc => doc.data().status === 'complete');
+            const lobbyGames = allGames.docs.filter(doc => doc.data().status === 'lobby');
+            const inProgressGames = allGames.docs.filter(doc => doc.data().status === 'in-progress');
+            
+            // Count stale games
+            const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+            const staleGames = allGames.docs.filter(doc => {
+                const gameData = doc.data();
+                const createdAt = gameData.createdAt?.toDate();
+                const lastActivity = gameData.lastActivity?.toDate();
+                
+                return (createdAt && createdAt < thirtyMinutesAgo) || 
+                       (lastActivity && lastActivity < thirtyMinutesAgo);
+            });
+            
+            statsElement.innerHTML = `
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <p><strong>Total Games:</strong> ${allGames.size}</p>
+                        <p><strong>Completed:</strong> ${completedGames.length}</p>
+                        <p><strong>In Lobby:</strong> ${lobbyGames.length}</p>
+                    </div>
+                    <div>
+                        <p><strong>In Progress:</strong> ${inProgressGames.length}</p>
+                        <p><strong>Stale Games:</strong> ${staleGames.length}</p>
+                        <p><strong>Last Updated:</strong> ${new Date().toLocaleTimeString()}</p>
+                    </div>
+                </div>
+            `;
+        } catch (error) {
+            console.error('Error loading database stats:', error);
+            statsElement.innerHTML = '<p class="text-red-600">Error loading statistics</p>';
+        }
+    }
+
+    async deleteAllGames() {
+        if (!confirm('Are you sure you want to delete ALL games? This action cannot be undone!')) {
+            return;
+        }
+        
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = 'Deleting all games...';
+        button.disabled = true;
+        
+        try {
+            const allGames = await db.collection('games').get();
+            const batch = db.batch();
+            
+            allGames.docs.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            
+            if (!allGames.empty) {
+                await batch.commit();
+                alert(`Successfully deleted ${allGames.size} games from the database.`);
+                console.log(`Deleted ${allGames.size} games from database`);
+            } else {
+                alert('No games found to delete.');
+            }
+            
+            // Refresh stats
+            this.loadDatabaseStats();
+        } catch (error) {
+            console.error('Error deleting all games:', error);
+            alert('Failed to delete games. Please try again.');
+        } finally {
+            button.textContent = originalText;
+            button.disabled = false;
+        }
+    }
+
+    async deleteCompletedGames() {
+        if (!confirm('Are you sure you want to delete all completed games?')) {
+            return;
+        }
+        
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = 'Deleting completed games...';
+        button.disabled = true;
+        
+        try {
+            const completedGames = await db.collection('games')
+                .where('status', '==', 'complete')
+                .get();
+            
+            const batch = db.batch();
+            completedGames.docs.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            
+            if (!completedGames.empty) {
+                await batch.commit();
+                alert(`Successfully deleted ${completedGames.size} completed games.`);
+                console.log(`Deleted ${completedGames.size} completed games`);
+            } else {
+                alert('No completed games found to delete.');
+            }
+            
+            // Refresh stats
+            this.loadDatabaseStats();
+        } catch (error) {
+            console.error('Error deleting completed games:', error);
+            alert('Failed to delete completed games. Please try again.');
+        } finally {
+            button.textContent = originalText;
+            button.disabled = false;
+        }
+    }
+
+    async deleteStaleGames() {
+        if (!confirm('Are you sure you want to delete all stale games (older than 30 minutes)?')) {
+            return;
+        }
+        
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = 'Deleting stale games...';
+        button.disabled = true;
+        
+        try {
+            const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+            const allGames = await db.collection('games').get();
+            
+            const staleGames = allGames.docs.filter(doc => {
+                const gameData = doc.data();
+                const createdAt = gameData.createdAt?.toDate();
+                const lastActivity = gameData.lastActivity?.toDate();
+                
+                return (createdAt && createdAt < thirtyMinutesAgo) || 
+                       (lastActivity && lastActivity < thirtyMinutesAgo);
+            });
+            
+            const batch = db.batch();
+            staleGames.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            
+            if (staleGames.length > 0) {
+                await batch.commit();
+                alert(`Successfully deleted ${staleGames.length} stale games.`);
+                console.log(`Deleted ${staleGames.length} stale games`);
+            } else {
+                alert('No stale games found to delete.');
+            }
+            
+            // Refresh stats
+            this.loadDatabaseStats();
+        } catch (error) {
+            console.error('Error deleting stale games:', error);
+            alert('Failed to delete stale games. Please try again.');
+        } finally {
+            button.textContent = originalText;
+            button.disabled = false;
         }
     }
 }
