@@ -14,6 +14,7 @@ class HangmanGame {
 
         this.currentPlayer = null;
         this.currentGameId = null;
+        this.isAdmin = false; // Track admin status
         this.init();
     }
 
@@ -1030,33 +1031,44 @@ class HangmanGame {
     }
 
     async showAdminPanel() {
-        // Check if user is authorized admin
-        const user = await this.waitForAuth();
-        if (!user) {
-            alert('Authentication required to access admin panel.');
-            return;
-        }
-        
-        // List of authorized admin UIDs - ADD YOUR UID HERE
-        const adminUIDs = [ 'GzWaKcsWb2NoFNLlXSg57W3W21k1'
-            // Add your Firebase UID here (you can find it in the browser console)
-            // Example: 'abc123def456ghi789'
-        ];
-        
-        if (!adminUIDs.includes(user.uid)) {
-            alert('Access denied. Admin panel is only available to authorized users.');
-            return;
+        // Check if user is already authenticated as admin
+        if (!this.isAdmin) {
+            const password = prompt('Enter admin password:');
+            if (!password) {
+                return; // User cancelled
+            }
+            
+            // Simple password check - you can change this password
+            const adminPassword = 'himalayasMomoManager29'; // CHANGE THIS PASSWORD!
+            
+            if (password !== adminPassword) {
+                alert('Incorrect password. Access denied.');
+                return;
+            }
+            
+            // Set admin status for this session
+            this.isAdmin = true;
+            console.log('Admin access granted');
         }
         
         const gameContainer = document.getElementById('gameContainer');
         gameContainer.innerHTML = `
             <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold text-red-600">Admin Panel</h2>
-                    <button onclick="game.showLobby()" 
-                            class="bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 game-button">
-                        Back to Lobby
-                    </button>
+                    <div>
+                        <h2 class="text-2xl font-bold text-red-600">Admin Panel</h2>
+                        <p class="text-sm text-green-600">✅ Admin Access Granted</p>
+                    </div>
+                    <div class="space-x-2">
+                        <button onclick="game.logoutAdmin()" 
+                                class="bg-orange-500 text-white py-2 px-4 rounded-md hover:bg-orange-600 game-button">
+                            Logout Admin
+                        </button>
+                        <button onclick="game.showLobby()" 
+                                class="bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 game-button">
+                            Back to Lobby
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="space-y-6">
@@ -1340,6 +1352,12 @@ class HangmanGame {
             button.textContent = originalText;
             button.disabled = false;
         }
+    }
+
+    logoutAdmin() {
+        this.isAdmin = false;
+        console.log('Admin logged out');
+        this.showLobby();
     }
 }
 

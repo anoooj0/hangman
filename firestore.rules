@@ -9,27 +9,16 @@ service cloud.firestore {
       // Allow write access only to authenticated users
       allow write: if request.auth != null;
       
-      // Additional security: only allow specific fields
+      // Allow create for authenticated users with proper game structure
       allow create: if request.auth != null 
-        && request.resource.data.keys().hasAll(['gameId', 'hostId', 'hostName', 'status', 'players', 'createdAt', 'lastActivity'])
         && request.resource.data.status in ['lobby', 'in-progress', 'complete']
-        && request.resource.data.players is map
-        && request.resource.data.players[request.auth.uid] != null;
+        && request.resource.data.players is map;
       
-      // Allow updates only for game participants
-      allow update: if request.auth != null 
-        && (request.auth.uid in resource.data.players.keys() 
-            || request.auth.uid == resource.data.hostId);
+      // Allow updates for authenticated users
+      allow update: if request.auth != null;
       
-      // Allow delete only for game host
-      allow delete: if request.auth != null 
-        && request.auth.uid == resource.data.hostId;
-    }
-    
-    // Admin collection - only accessible to specific admin users
-    match /admin/{document} {
-      allow read, write: if request.auth != null 
-        && request.auth.uid in ['YOUR_ADMIN_UID_HERE']; // Replace with your actual UID
+      // Allow delete for authenticated users (admin functions)
+      allow delete: if request.auth != null;
     }
     
     // Block all other collections
