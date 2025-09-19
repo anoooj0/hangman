@@ -947,7 +947,7 @@ class HangmanGame {
             status: 'lobby',
             players: {
                 [this.currentPlayer.id]: {
-                    name: playerName,
+                    name: playerName, // Only display name, no personal info
                     score: 0,
                     isHost: true
                 }
@@ -1030,6 +1030,24 @@ class HangmanGame {
     }
 
     async showAdminPanel() {
+        // Check if user is authorized admin
+        const user = await this.waitForAuth();
+        if (!user) {
+            alert('Authentication required to access admin panel.');
+            return;
+        }
+        
+        // List of authorized admin UIDs - ADD YOUR UID HERE
+        const adminUIDs = [ 'GzWaKcsWb2NoFNLlXSg57W3W21k1'
+            // Add your Firebase UID here (you can find it in the browser console)
+            // Example: 'abc123def456ghi789'
+        ];
+        
+        if (!adminUIDs.includes(user.uid)) {
+            alert('Access denied. Admin panel is only available to authorized users.');
+            return;
+        }
+        
         const gameContainer = document.getElementById('gameContainer');
         gameContainer.innerHTML = `
             <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
