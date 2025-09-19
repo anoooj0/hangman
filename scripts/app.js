@@ -20,26 +20,66 @@ class HangmanGame {
     init() {
         console.log('Hangman game initialized!');
         this.showLobby();
+        this.updateAuthStatus();
+    }
+
+    async updateAuthStatus() {
+        const authStatusElement = document.getElementById('authStatus');
+        if (!authStatusElement) return;
+        
+        try {
+            const user = await this.waitForAuth();
+            if (user) {
+                authStatusElement.innerHTML = `
+                    <div class="text-green-600">
+                        ✅ Authenticated as: ${user.uid.substring(0, 8)}...
+                    </div>
+                `;
+            } else {
+                authStatusElement.innerHTML = `
+                    <div class="text-red-600">
+                        ❌ Authentication failed - Please refresh the page
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Auth status check failed:', error);
+            authStatusElement.innerHTML = `
+                <div class="text-red-600">
+                    ❌ Authentication error - Check console for details
+                </div>
+            `;
+        }
     }
 
     async waitForAuth() {
         return new Promise((resolve) => {
             const auth = firebase.auth();
             
+            console.log('Checking authentication status...');
+            console.log('Current user:', auth.currentUser);
+            console.log('Auth state:', auth.currentUser ? 'authenticated' : 'not authenticated');
+            
             // If already authenticated, return immediately
             if (auth.currentUser) {
+                console.log('User already authenticated:', auth.currentUser.uid);
                 resolve(auth.currentUser);
                 return;
             }
             
             // Wait for auth state to change
             const unsubscribe = auth.onAuthStateChanged((user) => {
+                console.log('Auth state changed:', user ? 'authenticated' : 'not authenticated');
+                if (user) {
+                    console.log('User authenticated:', user.uid);
+                }
                 unsubscribe();
                 resolve(user);
             });
             
             // Timeout after 10 seconds
             setTimeout(() => {
+                console.log('Authentication timeout');
                 unsubscribe();
                 resolve(null);
             }, 10000);
@@ -95,6 +135,9 @@ class HangmanGame {
             gameContainer.innerHTML = `
                 <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
                     <h2 class="text-2xl font-bold text-center mb-6">Welcome to Hangman!</h2>
+                    <div id="authStatus" class="text-center text-sm text-gray-500 mb-4">
+                        Checking authentication...
+                    </div>
                     <div class="space-y-4">
                         <input type="text" id="playerName" placeholder="Enter your name" 
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -1014,12 +1057,17 @@ class HangmanGame {
                                 Delete Completed Games Only
                             </button>
                             
-                            <button onclick="game.deleteStaleGames()" 
-                                    class="bg-yellow-600 text-white py-2 px-4 rounded-md hover:bg-yellow-700 game-button">
-                                Delete Stale Games (30+ min old)
-                            </button>
-                        </div>
+                        <button onclick="game.deleteStaleGames()" 
+                                class="bg-yellow-600 text-white py-2 px-4 rounded-md hover:bg-yellow-700 game-button">
+                            Delete Stale Games (30+ min old)
+                        </button>
+                        
+                        <button onclick="game.testFirebasePermissions()" 
+                                class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 game-button">
+                            Test Firebase Permissions
+                        </button>
                     </div>
+                </div>
                     
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                         <h3 class="text-lg font-semibold text-blue-800 mb-2">Database Statistics</h3>
@@ -1200,6 +1248,76 @@ class HangmanGame {
         } catch (error) {
             console.error('Error deleting stale games:', error);
             alert('Failed to delete stale games. Please try again.');
+        } finally {
+            button.textContent = originalText;
+            button.disabled = false;
+        }
+    }
+
+    async testFirebasePermissions() {
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = 'Testing permissions...';
+        button.disabled = true;
+        
+        try {
+            console.log('=== FIREBASE PERMISSION TEST ===');
+            
+            // Test 1: Check authentication
+            const user = await this.waitForAuth();
+            console.log('Test 1 - Authentication:', user ? `✅ User: ${user.uid}` : '❌ No user');
+            
+            if (!user) {
+                alert('❌ Authentication failed. Please refresh the page and try again.');
+                return;
+            }
+            
+            // Test 2: Try to read games collection
+            console.log('Test 2 - Reading games collection...');
+            try {
+                const gamesSnapshot = await db.collection('games').limit(1).get();
+                console.log('Test 2 - Read games:', `✅ Success - Found ${gamesSnapshot.size} games`);
+            } catch (error) {
+                console.log('Test 2 - Read games:', `❌ Failed - ${error.code}: ${error.message}`);
+            }
+            
+            // Test 3: Try to create a test document
+            console.log('Test 3 - Creating test document...');
+            try {
+                const testDocRef = db.collection('games').doc('test-permission');
+                await testDocRef.set({
+                    test: true,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    userId: user.uid
+                });
+                console.log('Test 3 - Create document:', '✅ Success');
+                
+                // Clean up test document
+                await testDocRef.delete();
+                console.log('Test 3 - Cleanup:', '✅ Success');
+            } catch (error) {
+                console.log('Test 3 - Create document:', `❌ Failed - ${error.code}: ${error.message}`);
+            }
+            
+            // Test 4: Try to update an existing document
+            console.log('Test 4 - Updating document...');
+            try {
+                const testDocRef = db.collection('games').doc('test-update');
+                await testDocRef.set({ test: true, userId: user.uid });
+                await testDocRef.update({ updated: true });
+                console.log('Test 4 - Update document:', '✅ Success');
+                
+                // Clean up
+                await testDocRef.delete();
+            } catch (error) {
+                console.log('Test 4 - Update document:', `❌ Failed - ${error.code}: ${error.message}`);
+            }
+            
+            alert('Permission test completed! Check the browser console for detailed results.');
+            
+        } catch (error) {
+            console.error('Permission test failed:', error);
+            alert('Permission test failed. Check the browser console for details.');
         } finally {
             button.textContent = originalText;
             button.disabled = false;
