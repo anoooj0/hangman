@@ -46,6 +46,24 @@ class HangmanGame {
         });
     }
 
+    getTimeAgo(date) {
+        const now = new Date();
+        const diffInSeconds = Math.floor((now - date) / 1000);
+        
+        if (diffInSeconds < 60) {
+            return `${diffInSeconds} seconds ago`;
+        } else if (diffInSeconds < 3600) {
+            const minutes = Math.floor(diffInSeconds / 60);
+            return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+        } else if (diffInSeconds < 86400) {
+            const hours = Math.floor(diffInSeconds / 3600);
+            return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+        } else {
+            const days = Math.floor(diffInSeconds / 86400);
+            return `${days} day${days > 1 ? 's' : ''} ago`;
+        }
+    }
+
     showLobby() {
         // Clean up any active listeners
         if (this.gamesListener) {
@@ -194,7 +212,8 @@ class HangmanGame {
             await gameRef.set({
                 players: {
                     [user.uid]: { name: playerName, score: 0, isHost: false }
-                }
+                },
+                lastActivity: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
 
             console.log(`Joined game ${gameId} as ${playerName}`);
@@ -321,8 +340,8 @@ class HangmanGame {
 
     async cleanupStaleGames() {
         try {
-            // Find games that are either completed or haven't been active for 1 hour
-            const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+            // Find games that are either completed or haven't been active for 30 minutes
+            const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
             
             // Clean up completed games
             const completedGames = await db.collection('games')
@@ -339,20 +358,33 @@ class HangmanGame {
                 console.log(`Cleaned up ${completedGames.size} completed games`);
             }
             
-            // Clean up stale lobby games (older than 1 hour)
+            // Clean up stale lobby games (older than 30 minutes or no recent activity)
             const staleGames = await db.collection('games')
                 .where('status', '==', 'lobby')
-                .where('createdAt', '<', oneHourAgo)
                 .get();
             
             const staleBatch = db.batch();
+            let staleCount = 0;
+            
             staleGames.docs.forEach(doc => {
-                staleBatch.delete(doc.ref);
+                const gameData = doc.data();
+                const createdAt = gameData.createdAt?.toDate();
+                const lastActivity = gameData.lastActivity?.toDate();
+                
+                // Delete if created more than 30 minutes ago OR no activity in last 30 minutes
+                const isStale = (createdAt && createdAt < thirtyMinutesAgo) || 
+                               (lastActivity && lastActivity < thirtyMinutesAgo) ||
+                               (!lastActivity && createdAt && createdAt < thirtyMinutesAgo);
+                
+                if (isStale) {
+                    staleBatch.delete(doc.ref);
+                    staleCount++;
+                }
             });
             
-            if (!staleGames.empty) {
+            if (staleCount > 0) {
                 await staleBatch.commit();
-                console.log(`Cleaned up ${staleGames.size} stale games`);
+                console.log(`Cleaned up ${staleCount} stale games`);
             }
             
         } catch (error) {
@@ -376,11 +408,40 @@ class HangmanGame {
             return;
         }
 
-        const gamesHtml = snapshot.docs.map(doc => {
+        // Filter out idle games (older than 30 minutes or no recent activity)
+        const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+        const activeGames = snapshot.docs.filter(doc => {
+            const gameData = doc.data();
+            const createdAt = gameData.createdAt?.toDate();
+            const lastActivity = gameData.lastActivity?.toDate();
+            
+            // Keep games that are recent or have recent activity
+            return (createdAt && createdAt > thirtyMinutesAgo) || 
+                   (lastActivity && lastActivity > thirtyMinutesAgo);
+        });
+
+        if (activeGames.length === 0) {
+            gamesList.innerHTML = `
+                <div class="text-center text-gray-500 py-8">
+                    <p class="text-lg mb-4">No active games available right now.</p>
+                    <button onclick="game.showLobby()" 
+                            class="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 game-button">
+                        Create a New Game
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        const gamesHtml = activeGames.map(doc => {
             const gameData = doc.data();
             const gameId = doc.id;
             const playerCount = Object.keys(gameData.players || {}).length;
             const hostName = gameData.hostName || 'Unknown';
+            
+            // Calculate time since creation for display
+            const createdAt = gameData.createdAt?.toDate();
+            const timeAgo = createdAt ? this.getTimeAgo(createdAt) : 'Unknown';
             
             return `
                 <div class="flex items-center justify-between bg-gray-50 p-4 rounded-lg border">
@@ -389,6 +450,7 @@ class HangmanGame {
                             <div>
                                 <h3 class="font-semibold text-lg">Game ${gameId}</h3>
                                 <p class="text-gray-600">Host: ${hostName}</p>
+                                <p class="text-xs text-gray-400">Created ${timeAgo}</p>
                             </div>
                             <div class="text-sm text-gray-500">
                                 <p>Players: ${playerCount}</p>
@@ -408,7 +470,7 @@ class HangmanGame {
 
         // Track game browser usage (only on first load)
         if (window.va && !this.gamesBrowserTracked) {
-            window.va('track', 'Game Browser Viewed', { gameCount: snapshot.size });
+            window.va('track', 'Game Browser Viewed', { gameCount: activeGames.length });
             this.gamesBrowserTracked = true;
         }
     }
@@ -455,8 +517,9 @@ class HangmanGame {
         `;
     }
 
-    startGame() {
-        const user = (window.firebase && window.firebase.auth) ? firebase.auth().currentUser : null;
+    async startGame() {
+        // Wait for authentication to complete
+        const user = await this.waitForAuth();
         if (!user || user.uid !== this.gameState.hostId) {
             alert('Only the host can start the game.');
             return;
@@ -496,12 +559,16 @@ class HangmanGame {
             alert('Please enter only letters and spaces! Numbers and special characters are not allowed.');
             return;
         }
+        
         const gameId = this.currentGameId;
-        const user = (window.firebase && window.firebase.auth) ? firebase.auth().currentUser : null;
+        
+        // Wait for authentication to complete
+        const user = await this.waitForAuth();
         if (!user || !gameId) {
-            alert('Missing game or user context.');
+            alert('Authentication failed or missing game context.');
             return;
         }
+        
         // Only host can set the word
         if (user.uid !== this.gameState.hostId) {
             alert('Only the host can start the game.');
@@ -518,14 +585,27 @@ class HangmanGame {
                 displayWord: displayArray,
                 currentTurn: firstTurn,
                 guessedLetters: [],
-                incorrectGuesses: 0
+                incorrectGuesses: 0,
+                lastActivity: firebase.firestore.FieldValue.serverTimestamp()
             });
             console.log('Game started with word:', secretWord);
             // Track game start
             if (window.va) window.va('track', 'Game Started', { gameId, wordLength: secretWord.length });
         } catch (err) {
             console.error('Failed to start game:', err);
-            alert('Failed to start game.');
+            console.error('Error details:', err.message);
+            console.error('Error code:', err.code);
+            
+            let errorMessage = 'Failed to start game. Please try again.';
+            if (err.code === 'permission-denied') {
+                errorMessage = 'Permission denied. Please check your authentication.';
+            } else if (err.code === 'unavailable') {
+                errorMessage = 'Service temporarily unavailable. Please try again later.';
+            } else if (err.code === 'unauthenticated') {
+                errorMessage = 'Authentication required. Please refresh the page.';
+            }
+            
+            alert(errorMessage);
         }
     }
 
