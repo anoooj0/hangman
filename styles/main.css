@@ -24,3 +24,12 @@
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+/* Dark mode styles */
+.dark .hangman-drawing {
+    stroke: #d1d5db;
+}
+
+.dark .game-button:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}

@@ -1735,15 +1735,23 @@ class HangmanGame {
             // Check system preference
             if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
                 this.enableDarkMode();
+            } else {
+                this.disableDarkMode();
             }
         }
+        
+        // Ensure the toggle is properly initialized
+        setTimeout(() => {
+            this.updateDarkModeToggle();
+        }, 100);
     }
 
     toggleDarkMode() {
-        if (this.isDarkMode) {
-            this.disableDarkMode();
-        } else {
+        const toggle = document.getElementById('darkModeToggle');
+        if (toggle.checked) {
             this.enableDarkMode();
+        } else {
+            this.disableDarkMode();
         }
     }
 
@@ -1751,20 +1759,20 @@ class HangmanGame {
         this.isDarkMode = true;
         document.documentElement.classList.add('dark');
         localStorage.setItem('hangmanDarkMode', 'true');
-        this.updateDarkModeIcon();
+        this.updateDarkModeToggle();
     }
 
     disableDarkMode() {
         this.isDarkMode = false;
         document.documentElement.classList.remove('dark');
         localStorage.setItem('hangmanDarkMode', 'false');
-        this.updateDarkModeIcon();
+        this.updateDarkModeToggle();
     }
 
-    updateDarkModeIcon() {
+    updateDarkModeToggle() {
         const toggle = document.getElementById('darkModeToggle');
         if (toggle) {
-            toggle.textContent = this.isDarkMode ? '☀️' : '🌙';
+            toggle.checked = this.isDarkMode;
         }
     }
 

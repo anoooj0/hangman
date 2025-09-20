@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Multiplayer Hangman</title>
+    <script>
+        // Configure Tailwind dark mode
+        tailwind = {
+            darkMode: 'class'
+        };
+    </script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="styles/main.css">
 </head>
@@ -14,14 +20,16 @@
                 Multiplayer Hangman
             </h1>
             <!-- Dark mode toggle and admin access -->
-            <div class="absolute top-0 right-0 flex items-center space-x-2">
-                <!-- Dark mode toggle -->
-                <button onclick="game.toggleDarkMode()" 
-                        class="text-lg transition-colors hover:scale-110" 
-                        title="Toggle Dark Mode (Ctrl+Shift+D)"
-                        id="darkModeToggle">
-                    🌙
-                </button>
+            <div class="absolute top-0 right-0 flex items-center space-x-3">
+                <!-- Dark mode toggle slider -->
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">☀️</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="darkModeToggle" class="sr-only peer" onchange="game.toggleDarkMode()">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                    </label>
+                    <span class="text-sm text-gray-600 dark:text-gray-400">🌙</span>
+                </div>
                 <!-- Discrete admin access button -->
                 <button onclick="game.showAdminPanel()" 
                         class="text-xs text-gray-300 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 transition-colors opacity-30 hover:opacity-100" 
