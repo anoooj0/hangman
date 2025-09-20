@@ -839,7 +839,8 @@ class HangmanGame {
     }
 
     generateHangmanDrawing() {
-        const incorrectGuesses = this.gameState.incorrectGuesses || 0;
+        // Use current player's guesses for hangman drawing
+        const currentPlayerGuesses = this.gameState.playerGuesses[this.currentPlayer?.id] || 0;
         
         return `
             <svg viewBox="0 0 300 300" class="w-full h-full">
@@ -850,12 +851,12 @@ class HangmanGame {
                 <line x1="200" y1="50" x2="200" y2="80" class="hangman-drawing" />
                 
                 <!-- Hangman parts (progressive) -->
-                ${incorrectGuesses >= 1 ? '<circle cx="200" cy="100" r="20" class="hangman-drawing" />' : ''}
-                ${incorrectGuesses >= 2 ? '<line x1="200" y1="120" x2="200" y2="180" class="hangman-drawing" />' : ''}
-                ${incorrectGuesses >= 3 ? '<line x1="200" y1="140" x2="180" y2="160" class="hangman-drawing" />' : ''}
-                ${incorrectGuesses >= 4 ? '<line x1="200" y1="140" x2="220" y2="160" class="hangman-drawing" />' : ''}
-                ${incorrectGuesses >= 5 ? '<line x1="200" y1="180" x2="180" y2="220" class="hangman-drawing" />' : ''}
-                ${incorrectGuesses >= 6 ? '<line x1="200" y1="180" x2="220" y2="220" class="hangman-drawing" />' : ''}
+                ${currentPlayerGuesses >= 1 ? '<circle cx="200" cy="100" r="20" class="hangman-drawing" />' : ''}
+                ${currentPlayerGuesses >= 2 ? '<line x1="200" y1="120" x2="200" y2="180" class="hangman-drawing" />' : ''}
+                ${currentPlayerGuesses >= 3 ? '<line x1="200" y1="140" x2="180" y2="160" class="hangman-drawing" />' : ''}
+                ${currentPlayerGuesses >= 4 ? '<line x1="200" y1="140" x2="220" y2="160" class="hangman-drawing" />' : ''}
+                ${currentPlayerGuesses >= 5 ? '<line x1="200" y1="180" x2="180" y2="220" class="hangman-drawing" />' : ''}
+                ${currentPlayerGuesses >= 6 ? '<line x1="200" y1="180" x2="220" y2="220" class="hangman-drawing" />' : ''}
             </svg>
         `;
     }
@@ -863,7 +864,11 @@ class HangmanGame {
     generateLetterButtons() {
         const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
         const user = (window.firebase && window.firebase.auth) ? firebase.auth().currentUser : null;
-        const isMyTurn = user && this.gameState.currentTurn === user.uid;
+        
+        // In single player mode, always allow guessing. In multiplayer, check if it's your turn
+        const isSinglePlayer = Object.keys(this.gameState.players).length === 1;
+        const isMyTurn = user && (isSinglePlayer || this.gameState.currentTurn === user.uid);
+        
         return alphabet.split('').map(letter => {
             const isGuessed = this.gameState.guessedLetters.includes(letter);
             const isInWord = this.gameState.word.includes(letter);
@@ -890,11 +895,23 @@ class HangmanGame {
     async guessLetter(letter) {
         const gameId = this.currentGameId;
         const user = (window.firebase && window.firebase.auth) ? firebase.auth().currentUser : null;
-        if (!user || !gameId) return;
+        if (!user || !gameId) {
+            console.log('No user or gameId:', { user: !!user, gameId });
+            return;
+        }
 
-        // Only act on your turn
-        if (this.gameState.currentTurn !== user.uid) return;
-        if (this.gameState.guessedLetters.includes(letter)) return;
+        // Check if it's your turn (single player always allowed, multiplayer checks currentTurn)
+        const isSinglePlayer = Object.keys(this.gameState.players).length === 1;
+        console.log('Guess attempt:', { letter, isSinglePlayer, currentTurn: this.gameState.currentTurn, userUid: user.uid });
+        
+        if (!isSinglePlayer && this.gameState.currentTurn !== user.uid) {
+            console.log('Not your turn in multiplayer');
+            return;
+        }
+        if (this.gameState.guessedLetters.includes(letter)) {
+            console.log('Letter already guessed');
+            return;
+        }
 
         const gameRef = db.collection('games').doc(gameId);
         try {
