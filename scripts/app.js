@@ -15,6 +15,7 @@ class HangmanGame {
         this.currentPlayer = null;
         this.currentGameId = null;
         this.isAdmin = false; // Track admin status
+        this.wordLists = this.initializeWordLists();
         this.init();
         this.createCustomAlert();
     }
@@ -584,48 +585,114 @@ class HangmanGame {
         // Wait for authentication to complete
         const user = await this.waitForAuth();
         if (!user || user.uid !== this.gameState.hostId) {
-            this.customAlert('Only the host can start the game.');
+            this.customAlert('Only the host can start the game.', 'error');
             return;
         }
+        this.showWordSelection();
+    }
+
+    showWordSelection() {
         const gameContainer = document.getElementById('gameContainer');
         gameContainer.innerHTML = `
             <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold">Set the Word</h2>
+                    <h2 class="text-2xl font-bold">Choose Word Settings</h2>
                     <button onclick="game.leaveGame()" 
                             class="bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 game-button">
                         ← Back to Lobby
                     </button>
                 </div>
-                <div class="text-center mb-6">
-                    <p class="text-lg text-gray-700 mb-4">Enter the word or phrase for players to guess:</p>
-                    <input type="text" id="secretWord" placeholder="Enter word here" 
-                           class="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-lg">
-                </div>
                 
-                <div class="text-center">
-                    <button onclick="game.beginGame()" 
-                            class="bg-blue-500 text-white py-2 px-6 rounded-md hover:bg-blue-600 game-button">
-                        Start Guessing
-                    </button>
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="text-lg font-semibold mb-3">Difficulty Level:</h3>
+                        <div class="grid grid-cols-3 gap-3">
+                            <button onclick="game.selectDifficulty('easy')" 
+                                    class="difficulty-btn bg-green-100 text-green-800 py-2 px-4 rounded-md hover:bg-green-200 transition-colors">
+                                Easy (3-6 letters)
+                            </button>
+                            <button onclick="game.selectDifficulty('medium')" 
+                                    class="difficulty-btn bg-blue-100 text-blue-800 py-2 px-4 rounded-md hover:bg-blue-200 transition-colors">
+                                Medium (7-10 letters)
+                            </button>
+                            <button onclick="game.selectDifficulty('hard')" 
+                                    class="difficulty-btn bg-red-100 text-red-800 py-2 px-4 rounded-md hover:bg-red-200 transition-colors">
+                                Hard (11+ letters)
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-lg font-semibold mb-3">Category:</h3>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button onclick="game.selectCategory('mixed')" 
+                                    class="category-btn bg-purple-100 text-purple-800 py-2 px-4 rounded-md hover:bg-purple-200 transition-colors">
+                                Mixed
+                            </button>
+                            <button onclick="game.selectCategory('animals')" 
+                                    class="category-btn bg-orange-100 text-orange-800 py-2 px-4 rounded-md hover:bg-orange-200 transition-colors">
+                                Animals
+                            </button>
+                            <button onclick="game.selectCategory('food')" 
+                                    class="category-btn bg-yellow-100 text-yellow-800 py-2 px-4 rounded-md hover:bg-yellow-200 transition-colors">
+                                Food
+                            </button>
+                            <button onclick="game.selectCategory('countries')" 
+                                    class="category-btn bg-indigo-100 text-indigo-800 py-2 px-4 rounded-md hover:bg-indigo-200 transition-colors">
+                                Countries
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <button onclick="game.generateRandomWord()" 
+                                class="bg-blue-500 text-white py-3 px-8 rounded-md hover:bg-blue-600 game-button text-lg">
+                            🎲 Generate Random Word
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
     }
 
-    async beginGame() {
-        const secretWord = document.getElementById('secretWord').value.trim().toUpperCase();
+    selectDifficulty(difficulty) {
+        this.selectedDifficulty = difficulty;
         
-        if (!secretWord) {
-            this.customAlert('Please enter a word!');
+        // Update button styles
+        document.querySelectorAll('.difficulty-btn').forEach(btn => {
+            btn.classList.remove('ring-2', 'ring-blue-500');
+        });
+        event.target.classList.add('ring-2', 'ring-blue-500');
+    }
+
+    selectCategory(category) {
+        this.selectedCategory = category;
+        
+        // Update button styles
+        document.querySelectorAll('.category-btn').forEach(btn => {
+            btn.classList.remove('ring-2', 'ring-blue-500');
+        });
+        event.target.classList.add('ring-2', 'ring-blue-500');
+    }
+
+    generateRandomWord() {
+        if (!this.selectedDifficulty) {
+            this.customAlert('Please select a difficulty level first!', 'warning');
             return;
         }
         
-        // Validate that the word contains only letters and spaces
-        const isValidWord = /^[A-Z\s]+$/.test(secretWord);
+        if (!this.selectedCategory) {
+            this.customAlert('Please select a category first!', 'warning');
+            return;
+        }
         
-        if (!isValidWord) {
-            this.customAlert('Please enter only letters and spaces! Numbers and special characters are not allowed.');
+        const secretWord = this.getRandomWord(this.selectedCategory, this.selectedDifficulty);
+        this.beginGameWithWord(secretWord);
+    }
+
+    async beginGameWithWord(secretWord) {
+        if (!secretWord) {
+            this.customAlert('Failed to generate word. Please try again.', 'error');
             return;
         }
         
@@ -674,8 +741,13 @@ class HangmanGame {
                 errorMessage = 'Authentication required. Please refresh the page.';
             }
             
-            this.customAlert(errorMessage);
+            this.customAlert(errorMessage, 'error');
         }
+    }
+
+    async beginGame() {
+        // This function is kept for backward compatibility but now redirects to word selection
+        this.showWordSelection();
     }
 
     showGameBoard() {
@@ -1643,6 +1715,77 @@ class HangmanGame {
                 this.showAdminPanel();
             }
         });
+    }
+
+    initializeWordLists() {
+        return {
+            easy: [
+                'CAT', 'DOG', 'SUN', 'MOON', 'STAR', 'TREE', 'BIRD', 'FISH', 'CAKE', 'BOOK',
+                'HAND', 'FOOT', 'EYE', 'EAR', 'NOSE', 'MOUTH', 'HEAD', 'ARM', 'LEG', 'TOE',
+                'CAR', 'BUS', 'PLANE', 'BOAT', 'TRAIN', 'BIKE', 'HOUSE', 'DOOR', 'WINDOW', 'ROOF',
+                'WATER', 'FIRE', 'EARTH', 'WIND', 'SNOW', 'RAIN', 'SUNNY', 'CLOUDY', 'WARM', 'COLD'
+            ],
+            medium: [
+                'ELEPHANT', 'GIRAFFE', 'PENGUIN', 'DOLPHIN', 'BUTTERFLY', 'DINOSAUR', 'KANGAROO', 'TIGER',
+                'COMPUTER', 'TELEPHONE', 'TELEVISION', 'RADIO', 'CAMERA', 'MUSIC', 'DANCE', 'SINGING',
+                'BASKETBALL', 'FOOTBALL', 'TENNIS', 'SWIMMING', 'RUNNING', 'CYCLING', 'SKIING', 'SURFING',
+                'MOUNTAIN', 'OCEAN', 'FOREST', 'DESERT', 'JUNGLE', 'RIVER', 'LAKE', 'VALLEY',
+                'HOSPITAL', 'SCHOOL', 'LIBRARY', 'MUSEUM', 'AIRPORT', 'STATION', 'PARK', 'GARDEN'
+            ],
+            hard: [
+                'PHOTOSYNTHESIS', 'MAGNIFICENT', 'EXTRAORDINARY', 'INCREDIBLE', 'FANTASTIC', 'WONDERFUL',
+                'ADVENTURE', 'EXPLORATION', 'DISCOVERY', 'INVENTION', 'IMAGINATION', 'CREATIVITY',
+                'ASTRONAUT', 'TELESCOPE', 'MICROSCOPE', 'LABORATORY', 'EXPERIMENT', 'RESEARCH',
+                'PHILOSOPHY', 'PSYCHOLOGY', 'BIOLOGY', 'CHEMISTRY', 'PHYSICS', 'MATHEMATICS',
+                'ARCHITECTURE', 'ENGINEERING', 'TECHNOLOGY', 'INNOVATION', 'REVOLUTION', 'EVOLUTION'
+            ],
+            animals: [
+                'LION', 'TIGER', 'ELEPHANT', 'GIRAFFE', 'ZEBRA', 'MONKEY', 'PANDA', 'KANGAROO',
+                'PENGUIN', 'DOLPHIN', 'WHALE', 'SHARK', 'EAGLE', 'OWL', 'PARROT', 'PEACOCK',
+                'BUTTERFLY', 'BEE', 'SPIDER', 'SNAKE', 'FROG', 'TURTLE', 'CROCODILE', 'HIPPO'
+            ],
+            food: [
+                'PIZZA', 'BURGER', 'SANDWICH', 'SALAD', 'SPAGHETTI', 'PASTA', 'SUSHI', 'TACO',
+                'CHOCOLATE', 'VANILLA', 'STRAWBERRY', 'BANANA', 'ORANGE', 'APPLE', 'GRAPE', 'CHERRY',
+                'COFFEE', 'TEA', 'JUICE', 'WATER', 'MILK', 'YOGURT', 'CHEESE', 'BREAD'
+            ],
+            countries: [
+                'CANADA', 'MEXICO', 'BRAZIL', 'ARGENTINA', 'FRANCE', 'GERMANY', 'ITALY', 'SPAIN',
+                'ENGLAND', 'IRELAND', 'SCOTLAND', 'NORWAY', 'SWEDEN', 'FINLAND', 'RUSSIA', 'CHINA',
+                'JAPAN', 'KOREA', 'INDIA', 'AUSTRALIA', 'EGYPT', 'SOUTH AFRICA', 'NIGERIA', 'KENYA'
+            ]
+        };
+    }
+
+    getRandomWord(category = 'mixed', difficulty = 'medium') {
+        let wordList = [];
+        
+        if (category === 'mixed') {
+            // Combine all categories for mixed selection
+            Object.values(this.wordLists).forEach(list => {
+                wordList = wordList.concat(list);
+            });
+        } else if (this.wordLists[category]) {
+            wordList = this.wordLists[category];
+        } else {
+            // Fallback to difficulty-based selection
+            wordList = this.wordLists[difficulty] || this.wordLists.medium;
+        }
+        
+        // Filter by difficulty if category is mixed
+        if (category === 'mixed') {
+            if (difficulty === 'easy') {
+                wordList = wordList.filter(word => word.length <= 6);
+            } else if (difficulty === 'medium') {
+                wordList = wordList.filter(word => word.length > 6 && word.length <= 10);
+            } else if (difficulty === 'hard') {
+                wordList = wordList.filter(word => word.length > 10);
+            }
+        }
+        
+        // Return random word
+        const randomIndex = Math.floor(Math.random() * wordList.length);
+        return wordList[randomIndex] || 'HANGMAN';
     }
 }
 
