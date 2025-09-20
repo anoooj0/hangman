@@ -8,7 +8,7 @@ class HangmanGame {
             category: '',
             difficulty: '',
             guessedLetters: [],
-            incorrectGuesses: 0,
+            playerGuesses: {}, // Track individual player incorrect guesses
             displayWord: [],
             currentTurn: null,
             hostId: null
@@ -719,6 +719,12 @@ class HangmanGame {
         const firstTurn = this.gameState.hostId;
 
         try {
+            // Initialize player guesses for all players
+            const playerGuesses = {};
+            Object.keys(this.gameState.players).forEach(playerId => {
+                playerGuesses[playerId] = 0;
+            });
+
             await db.collection('games').doc(gameId).update({
                 status: 'in-progress',
                 word: secretWord,
@@ -727,7 +733,7 @@ class HangmanGame {
                 displayWord: displayArray,
                 currentTurn: firstTurn,
                 guessedLetters: [],
-                incorrectGuesses: 0,
+                playerGuesses: playerGuesses,
                 lastActivity: firebase.firestore.FieldValue.serverTimestamp()
             });
             console.log('Game started with word:', secretWord);
@@ -774,8 +780,8 @@ class HangmanGame {
                     <div class="flex-1">
                         <!-- Game Status -->
                         <div class="text-center mb-6">
-                            <p class="text-lg text-gray-700">Incorrect Guesses: <span class="font-bold text-red-600">${this.gameState.incorrectGuesses}</span> / 6</p>
                             <p class="text-lg text-gray-700">Current Turn: <span class="font-bold text-blue-600">${this.gameState.players[this.gameState.currentTurn]?.name || 'Unknown'}</span></p>
+                            <p class="text-lg text-gray-700">Your Guesses: <span class="font-bold text-red-600">${this.gameState.playerGuesses[this.currentPlayer?.id] || 0}</span> / 6</p>
                         </div>
                         
                         <!-- Category and Difficulty -->
@@ -802,6 +808,21 @@ class HangmanGame {
                         <!-- Letter Grid -->
                         <div class="grid grid-cols-7 gap-2 max-w-md mx-auto mb-6">
                             ${this.generateLetterButtons()}
+                        </div>
+                        
+                        <!-- Player Guesses -->
+                        <div class="text-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-700 mb-2">Player Guesses</h3>
+                            <div class="grid grid-cols-2 gap-2 max-w-md mx-auto">
+                                ${Object.entries(this.gameState.players).map(([playerId, player]) => `
+                                    <div class="flex justify-between items-center bg-gray-50 rounded px-3 py-1">
+                                        <span class="text-sm font-medium text-gray-700">${player.name}</span>
+                                        <span class="text-sm font-bold ${(this.gameState.playerGuesses[playerId] || 0) >= 6 ? 'text-red-600' : 'text-gray-600'}">
+                                            ${this.gameState.playerGuesses[playerId] || 0}/6
+                                        </span>
+                                    </div>
+                                `).join('')}
+                            </div>
                         </div>
                         
                         <!-- Game Info -->
@@ -884,14 +905,15 @@ class HangmanGame {
                 const guessedLetters = [...(data.guessedLetters || []), letter];
                 let displayWord = [...(data.displayWord || [])];
                 const word = data.word || '';
-                let incorrectGuesses = data.incorrectGuesses || 0;
+                let playerGuesses = { ...(data.playerGuesses || {}) };
 
                 if (word.includes(letter)) {
                     for (let i = 0; i < word.length; i++) {
                         if (word[i] === letter) displayWord[i] = letter;
                     }
                 } else {
-                    incorrectGuesses += 1;
+                    // Increment incorrect guesses for current player
+                    playerGuesses[user.uid] = (playerGuesses[user.uid] || 0) + 1;
                 }
 
                 // Determine next turn
@@ -902,12 +924,13 @@ class HangmanGame {
 
                 // Determine status
                 const hasUnderscore = displayWord.includes('_');
-                const status = (!hasUnderscore) ? 'complete' : (incorrectGuesses >= 6 ? 'complete' : data.status);
+                const currentPlayerGuesses = playerGuesses[user.uid] || 0;
+                const status = (!hasUnderscore) ? 'complete' : (currentPlayerGuesses >= 6 ? 'complete' : data.status);
 
                 tx.update(gameRef, {
                     guessedLetters,
                     displayWord,
-                    incorrectGuesses,
+                    playerGuesses,
                     currentTurn: status === 'complete' ? data.currentTurn : nextTurn,
                     status
                 });
@@ -916,9 +939,9 @@ class HangmanGame {
                 if (window.va) {
                     if (status === 'complete') {
                         if (!hasUnderscore) {
-                            window.va('track', 'Game Won', { gameId, incorrectGuesses });
+                            window.va('track', 'Game Won', { gameId, playerGuesses: currentPlayerGuesses });
                         } else {
-                            window.va('track', 'Game Lost', { gameId, incorrectGuesses });
+                            window.va('track', 'Game Lost', { gameId, playerGuesses: currentPlayerGuesses });
                         }
                     } else {
                         window.va('track', 'Letter Guessed', { 
@@ -997,8 +1020,9 @@ class HangmanGame {
             return;
         }
         
-        // Check for lose condition - 6 incorrect guesses
-        if (this.gameState.incorrectGuesses >= 6) {
+        // Check for lose condition - current player has 6 incorrect guesses
+        const currentPlayerGuesses = this.gameState.playerGuesses[this.gameState.currentTurn] || 0;
+        if (currentPlayerGuesses >= 6) {
             this.gameState.status = 'complete';
             this.showGameResult('lose');
             return;
