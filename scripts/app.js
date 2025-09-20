@@ -16,8 +16,10 @@ class HangmanGame {
         this.currentGameId = null;
         this.isAdmin = false; // Track admin status
         this.wordLists = this.initializeWordLists();
+        this.isDarkMode = false; // Track dark mode status
         this.init();
         this.createCustomAlert();
+        this.initializeDarkMode();
     }
 
     init() {
@@ -142,25 +144,25 @@ class HangmanGame {
         // Add a small delay to ensure the container is cleared
         setTimeout(() => {
             gameContainer.innerHTML = `
-                <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
-                    <h2 class="text-2xl font-bold text-center mb-6">Welcome to Hangman!</h2>
+                <div class="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-colors duration-300">
+                    <h2 class="text-2xl font-bold text-center mb-6 text-gray-800 dark:text-gray-100">Welcome to Hangman!</h2>
                     <div class="space-y-4">
                         <input type="text" id="playerName" placeholder="Enter your name" 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-300">
                         <button onclick="game.createGame()" 
-                                class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 game-button">
+                                class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 game-button transition-colors duration-300">
                             Create New Game
                         </button>
-                        <div class="text-center text-gray-500">or</div>
+                        <div class="text-center text-gray-500 dark:text-gray-400">or</div>
                         <input type="text" id="gameId" placeholder="Enter Game ID to join" 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-300">
                         <button onclick="game.joinGame()" 
-                                class="w-full bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 game-button">
+                                class="w-full bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 game-button transition-colors duration-300">
                             Join Game
                         </button>
-                        <div class="text-center text-gray-500">or</div>
+                        <div class="text-center text-gray-500 dark:text-gray-400">or</div>
                         <button onclick="game.showGameBrowser()" 
-                                class="w-full bg-purple-500 text-white py-2 px-4 rounded-md hover:bg-purple-600 game-button">
+                                class="w-full bg-purple-500 text-white py-2 px-4 rounded-md hover:bg-purple-600 game-button transition-colors duration-300">
                             Browse Available Games
                         </button>
                     </div>
@@ -1576,15 +1578,15 @@ class HangmanGame {
         // Create custom alert modal
         const alertHTML = `
             <div id="customAlert" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-                <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 transform transition-all duration-300 scale-95 opacity-0" id="alertModal">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 transform transition-all duration-300 scale-95 opacity-0" id="alertModal">
                     <div class="p-6">
                         <div class="flex items-center mb-4">
                             <div id="alertIcon" class="mr-3 text-2xl">⚠️</div>
-                            <h3 id="alertTitle" class="text-lg font-semibold text-gray-900">Alert</h3>
+                            <h3 id="alertTitle" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Alert</h3>
                         </div>
-                        <p id="alertMessage" class="text-gray-600 mb-6">This is a custom alert message.</p>
+                        <p id="alertMessage" class="text-gray-600 dark:text-gray-300 mb-6">This is a custom alert message.</p>
                         <div class="flex justify-end space-x-3">
-                            <button id="alertCancel" class="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors hidden">
+                            <button id="alertCancel" class="px-4 py-2 text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors hidden">
                                 Cancel
                             </button>
                             <button id="alertConfirm" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">
@@ -1708,13 +1710,62 @@ class HangmanGame {
     }
 
     setupAdminShortcut() {
-        // Add keyboard shortcut for admin access (Ctrl+Shift+A)
+        // Add keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.shiftKey && e.key === 'A') {
                 e.preventDefault();
                 this.showAdminPanel();
             }
+            // Dark mode toggle (Ctrl+Shift+D)
+            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                e.preventDefault();
+                this.toggleDarkMode();
+            }
         });
+    }
+
+    initializeDarkMode() {
+        // Check for saved dark mode preference
+        const savedDarkMode = localStorage.getItem('hangmanDarkMode');
+        if (savedDarkMode === 'true') {
+            this.enableDarkMode();
+        } else if (savedDarkMode === 'false') {
+            this.disableDarkMode();
+        } else {
+            // Check system preference
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                this.enableDarkMode();
+            }
+        }
+    }
+
+    toggleDarkMode() {
+        if (this.isDarkMode) {
+            this.disableDarkMode();
+        } else {
+            this.enableDarkMode();
+        }
+    }
+
+    enableDarkMode() {
+        this.isDarkMode = true;
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('hangmanDarkMode', 'true');
+        this.updateDarkModeIcon();
+    }
+
+    disableDarkMode() {
+        this.isDarkMode = false;
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('hangmanDarkMode', 'false');
+        this.updateDarkModeIcon();
+    }
+
+    updateDarkModeIcon() {
+        const toggle = document.getElementById('darkModeToggle');
+        if (toggle) {
+            toggle.textContent = this.isDarkMode ? '☀️' : '🌙';
+        }
     }
 
     initializeWordLists() {
