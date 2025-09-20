@@ -1186,6 +1186,11 @@ class HangmanGame {
                                 class="bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 game-button">
                             Clean Empty Lobbies Now
                         </button>
+                        
+                        <button onclick="game.testDarkMode()" 
+                                class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 game-button">
+                            Test Dark Mode
+                        </button>
                     </div>
                 </div>
                     
@@ -1747,11 +1752,10 @@ class HangmanGame {
     }
 
     toggleDarkMode() {
-        const toggle = document.getElementById('darkModeToggle');
-        if (toggle.checked) {
-            this.enableDarkMode();
-        } else {
+        if (this.isDarkMode) {
             this.disableDarkMode();
+        } else {
+            this.enableDarkMode();
         }
     }
 
@@ -1760,6 +1764,7 @@ class HangmanGame {
         document.documentElement.classList.add('dark');
         localStorage.setItem('hangmanDarkMode', 'true');
         this.updateDarkModeToggle();
+        console.log('Dark mode enabled');
     }
 
     disableDarkMode() {
@@ -1767,13 +1772,35 @@ class HangmanGame {
         document.documentElement.classList.remove('dark');
         localStorage.setItem('hangmanDarkMode', 'false');
         this.updateDarkModeToggle();
+        console.log('Dark mode disabled');
     }
 
     updateDarkModeToggle() {
-        const toggle = document.getElementById('darkModeToggle');
-        if (toggle) {
-            toggle.checked = this.isDarkMode;
+        const icon = document.getElementById('darkModeIcon');
+        const text = document.getElementById('darkModeText');
+        if (icon && text) {
+            if (this.isDarkMode) {
+                icon.textContent = '☀️';
+                text.textContent = 'Light';
+            } else {
+                icon.textContent = '🌙';
+                text.textContent = 'Dark';
+            }
         }
+    }
+
+    testDarkMode() {
+        console.log('Current dark mode state:', this.isDarkMode);
+        console.log('HTML classes:', document.documentElement.className);
+        console.log('Local storage:', localStorage.getItem('hangmanDarkMode'));
+        
+        // Force toggle for testing
+        this.toggleDarkMode();
+        
+        setTimeout(() => {
+            console.log('After toggle - Dark mode state:', this.isDarkMode);
+            console.log('After toggle - HTML classes:', document.documentElement.className);
+        }, 100);
     }
 
     initializeWordLists() {
