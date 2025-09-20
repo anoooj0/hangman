@@ -22,6 +22,9 @@ class HangmanGame {
         console.log('Hangman game initialized!');
         this.showLobby();
         this.updateAuthStatus();
+        
+        // Start periodic cleanup of empty lobbies
+        this.startPeriodicCleanup();
     }
 
     async updateAuthStatus() {
@@ -1108,6 +1111,11 @@ class HangmanGame {
                                 class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 game-button">
                             Test Firebase Permissions
                         </button>
+                        
+                        <button onclick="game.cleanupEmptyLobbies()" 
+                                class="bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 game-button">
+                            Clean Empty Lobbies Now
+                        </button>
                     </div>
                 </div>
                     
@@ -1381,13 +1389,31 @@ class HangmanGame {
         try {
             const user = await this.waitForAuth();
             if (user) {
-                // Remove player from the game
                 const gameRef = db.collection('games').doc(this.currentGameId);
-                await gameRef.update({
-                    [`players.${user.uid}`]: firebase.firestore.FieldValue.delete(),
-                    lastActivity: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                console.log('Left game:', this.currentGameId);
+                
+                // Get current game data to check if it will be empty
+                const gameDoc = await gameRef.get();
+                if (gameDoc.exists) {
+                    const gameData = gameDoc.data();
+                    const currentPlayers = gameData.players || {};
+                    
+                    // Remove player from the game
+                    await gameRef.update({
+                        [`players.${user.uid}`]: firebase.firestore.FieldValue.delete(),
+                        lastActivity: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    // Check if lobby will be empty after removing this player
+                    const remainingPlayers = Object.keys(currentPlayers).filter(uid => uid !== user.uid);
+                    
+                    if (remainingPlayers.length === 0) {
+                        // Delete the empty game
+                        await gameRef.delete();
+                        console.log('Deleted empty lobby:', this.currentGameId);
+                    } else {
+                        console.log('Left game:', this.currentGameId, 'Remaining players:', remainingPlayers.length);
+                    }
+                }
             }
         } catch (error) {
             console.error('Error leaving game:', error);
@@ -1408,6 +1434,72 @@ class HangmanGame {
             
             // Return to lobby
             this.showLobby();
+        }
+    }
+
+    startPeriodicCleanup() {
+        // Run cleanup every 2 minutes
+        setInterval(() => {
+            this.cleanupEmptyLobbies();
+        }, 120000); // 2 minutes
+        
+        // Also run cleanup when the page becomes visible (user returns to tab)
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                this.cleanupEmptyLobbies();
+            }
+        });
+    }
+
+    async cleanupEmptyLobbies() {
+        try {
+            console.log('Running cleanup of empty lobbies...');
+            
+            // Get all lobby games
+            const lobbyGames = await db.collection('games')
+                .where('status', '==', 'lobby')
+                .get();
+            
+            const batch = db.batch();
+            let deletedCount = 0;
+            
+            lobbyGames.docs.forEach(doc => {
+                const gameData = doc.data();
+                const players = gameData.players || {};
+                
+                // If no players, mark for deletion
+                if (Object.keys(players).length === 0) {
+                    batch.delete(doc.ref);
+                    deletedCount++;
+                }
+            });
+            
+            if (deletedCount > 0) {
+                await batch.commit();
+                console.log(`Cleaned up ${deletedCount} empty lobbies`);
+                
+                // Show user-friendly message if called from admin panel
+                if (event && event.target) {
+                    alert(`✅ Cleaned up ${deletedCount} empty lobbies!`);
+                    // Refresh stats
+                    this.loadDatabaseStats();
+                }
+            } else {
+                console.log('No empty lobbies found');
+                
+                // Show user-friendly message if called from admin panel
+                if (event && event.target) {
+                    alert('✅ No empty lobbies found - database is clean!');
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error during cleanup:', error);
+            
+            // Show error message if called from admin panel
+            if (event && event.target) {
+                alert('❌ Error cleaning up empty lobbies. Check console for details.');
+            }
         }
     }
 }
