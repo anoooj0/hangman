@@ -9,13 +9,13 @@
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div id="app" class="container mx-auto px-4 py-8">
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-4xl font-bold text-gray-800">
+        <div class="relative mb-8">
+            <h1 class="text-4xl font-bold text-center text-gray-800">
                 Multiplayer Hangman
             </h1>
             <!-- Discrete admin access button -->
             <button onclick="game.showAdminPanel()" 
-                    class="text-xs text-gray-300 hover:text-gray-600 transition-colors opacity-30 hover:opacity-100" 
+                    class="absolute top-0 right-0 text-xs text-gray-300 hover:text-gray-600 transition-colors opacity-30 hover:opacity-100" 
                     title="Admin Access (Ctrl+Shift+A)">
                 ⚙️
             </button>
