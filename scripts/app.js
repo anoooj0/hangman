@@ -16,6 +16,7 @@ class HangmanGame {
         this.currentGameId = null;
         this.isAdmin = false; // Track admin status
         this.init();
+        this.createCustomAlert();
     }
 
     init() {
@@ -172,7 +173,7 @@ class HangmanGame {
     async createGame() {
         const playerName = document.getElementById('playerName').value.trim();
         if (!playerName) {
-            alert('Please enter your name!');
+            this.customAlert('Please enter your name!', 'error');
             return;
         }
         
@@ -186,7 +187,7 @@ class HangmanGame {
             // Wait for authentication to complete
             const user = await this.waitForAuth();
             if (!user) {
-                alert('Authentication failed. Please refresh and try again.');
+                this.customAlert('Authentication failed. Please refresh and try again.', 'error');
                 return;
             }
             
@@ -204,7 +205,7 @@ class HangmanGame {
             await this.createGameInFirebase(gameId, playerName);
         } catch (error) {
             console.error('Error in createGame:', error);
-            alert('Failed to create game. Please try again.');
+            this.customAlert('Failed to create game. Please try again.', 'error');
         } finally {
             // Restore button state
             button.textContent = originalText;
@@ -217,7 +218,7 @@ class HangmanGame {
         const gameId = document.getElementById('gameId').value.trim();
         
         if (!playerName || !gameId) {
-            alert('Please enter both your name and game ID!');
+            this.customAlert('Please enter both your name and game ID!', 'error');
             return;
         }
         
@@ -231,7 +232,7 @@ class HangmanGame {
             await this.joinGameById(gameId, playerName);
         } catch (error) {
             console.error('Error in joinGame:', error);
-            alert('Failed to join game. Please try again.');
+            this.customAlert('Failed to join game. Please try again.', 'error');
         } finally {
             // Restore button state
             button.textContent = originalText;
@@ -243,7 +244,7 @@ class HangmanGame {
         // Wait for authentication to complete
         const user = await this.waitForAuth();
         if (!user) {
-            alert('Authentication failed. Please refresh and try again.');
+            this.customAlert('Authentication failed. Please refresh and try again.', 'error');
             return;
         }
 
@@ -257,14 +258,14 @@ class HangmanGame {
             const gameRef = db.collection('games').doc(gameId);
             const docSnap = await gameRef.get();
             if (!docSnap.exists) {
-                alert('Game not found. Check the Game ID.');
+                this.customAlert('Game not found. Check the Game ID.');
                 return;
             }
             
             // Check if game is still in lobby status
             const gameData = docSnap.data();
             if (gameData.status !== 'lobby') {
-                alert('This game is no longer accepting new players.');
+                this.customAlert('This game is no longer accepting new players.');
                 return;
             }
             
@@ -294,21 +295,21 @@ class HangmanGame {
                 errorMessage = 'Game not found. Please check the Game ID.';
             }
             
-            alert(errorMessage);
+            this.customAlert(errorMessage);
         }
     }
 
     async showGameBrowser() {
         const playerName = document.getElementById('playerName').value.trim();
         if (!playerName) {
-            alert('Please enter your name first!');
+            this.customAlert('Please enter your name first!', 'error');
             return;
         }
 
         // Wait for authentication to complete
         const user = await this.waitForAuth();
         if (!user) {
-            alert('Authentication failed. Please refresh and try again.');
+            this.customAlert('Authentication failed. Please refresh and try again.', 'error');
             return;
         }
 
@@ -585,7 +586,7 @@ class HangmanGame {
         // Wait for authentication to complete
         const user = await this.waitForAuth();
         if (!user || user.uid !== this.gameState.hostId) {
-            alert('Only the host can start the game.');
+            this.customAlert('Only the host can start the game.');
             return;
         }
         const gameContainer = document.getElementById('gameContainer');
@@ -618,7 +619,7 @@ class HangmanGame {
         const secretWord = document.getElementById('secretWord').value.trim().toUpperCase();
         
         if (!secretWord) {
-            alert('Please enter a word!');
+            this.customAlert('Please enter a word!');
             return;
         }
         
@@ -626,7 +627,7 @@ class HangmanGame {
         const isValidWord = /^[A-Z\s]+$/.test(secretWord);
         
         if (!isValidWord) {
-            alert('Please enter only letters and spaces! Numbers and special characters are not allowed.');
+            this.customAlert('Please enter only letters and spaces! Numbers and special characters are not allowed.');
             return;
         }
         
@@ -635,13 +636,13 @@ class HangmanGame {
         // Wait for authentication to complete
         const user = await this.waitForAuth();
         if (!user || !gameId) {
-            alert('Authentication failed or missing game context.');
+            this.customAlert('Authentication failed or missing game context.');
             return;
         }
         
         // Only host can set the word
         if (user.uid !== this.gameState.hostId) {
-            alert('Only the host can start the game.');
+            this.customAlert('Only the host can start the game.');
             return;
         }
 
@@ -675,7 +676,7 @@ class HangmanGame {
                 errorMessage = 'Authentication required. Please refresh the page.';
             }
             
-            alert(errorMessage);
+            this.customAlert(errorMessage);
         }
     }
 
@@ -994,7 +995,7 @@ class HangmanGame {
                 errorMessage = 'Authentication required. Please refresh the page.';
             }
             
-            alert(errorMessage);
+            this.customAlert(errorMessage);
         }
     }
 
@@ -1054,7 +1055,7 @@ class HangmanGame {
             const adminPassword = 'himalayasMomoManager29'; // CHANGE THIS PASSWORD!
             
             if (password !== adminPassword) {
-                alert('Incorrect password. Access denied.');
+                this.customAlert('Incorrect password. Access denied.', 'error');
                 return;
             }
             
@@ -1179,7 +1180,8 @@ class HangmanGame {
     }
 
     async deleteAllGames() {
-        if (!confirm('Are you sure you want to delete ALL games? This action cannot be undone!')) {
+        const confirmed = await this.customConfirm('Are you sure you want to delete ALL games? This action cannot be undone!', 'Delete All Games');
+        if (!confirmed) {
             return;
         }
         
@@ -1198,17 +1200,17 @@ class HangmanGame {
             
             if (!allGames.empty) {
                 await batch.commit();
-                alert(`Successfully deleted ${allGames.size} games from the database.`);
+                this.customAlert(`Successfully deleted ${allGames.size} games from the database.`, 'success');
                 console.log(`Deleted ${allGames.size} games from database`);
             } else {
-                alert('No games found to delete.');
+                this.customAlert('No games found to delete.', 'info');
             }
             
             // Refresh stats
             this.loadDatabaseStats();
         } catch (error) {
             console.error('Error deleting all games:', error);
-            alert('Failed to delete games. Please try again.');
+            this.customAlert('Failed to delete games. Please try again.', 'error');
         } finally {
             button.textContent = originalText;
             button.disabled = false;
@@ -1237,17 +1239,17 @@ class HangmanGame {
             
             if (!completedGames.empty) {
                 await batch.commit();
-                alert(`Successfully deleted ${completedGames.size} completed games.`);
+                this.customAlert(`Successfully deleted ${completedGames.size} completed games.`);
                 console.log(`Deleted ${completedGames.size} completed games`);
             } else {
-                alert('No completed games found to delete.');
+                this.customAlert('No completed games found to delete.');
             }
             
             // Refresh stats
             this.loadDatabaseStats();
         } catch (error) {
             console.error('Error deleting completed games:', error);
-            alert('Failed to delete completed games. Please try again.');
+            this.customAlert('Failed to delete completed games. Please try again.');
         } finally {
             button.textContent = originalText;
             button.disabled = false;
@@ -1284,17 +1286,17 @@ class HangmanGame {
             
             if (staleGames.length > 0) {
                 await batch.commit();
-                alert(`Successfully deleted ${staleGames.length} stale games.`);
+                this.customAlert(`Successfully deleted ${staleGames.length} stale games.`);
                 console.log(`Deleted ${staleGames.length} stale games`);
             } else {
-                alert('No stale games found to delete.');
+                this.customAlert('No stale games found to delete.');
             }
             
             // Refresh stats
             this.loadDatabaseStats();
         } catch (error) {
             console.error('Error deleting stale games:', error);
-            alert('Failed to delete stale games. Please try again.');
+            this.customAlert('Failed to delete stale games. Please try again.');
         } finally {
             button.textContent = originalText;
             button.disabled = false;
@@ -1315,7 +1317,7 @@ class HangmanGame {
             console.log('Test 1 - Authentication:', user ? `✅ User: ${user.uid}` : '❌ No user');
             
             if (!user) {
-                alert('❌ Authentication failed. Please refresh the page and try again.');
+                this.customAlert('❌ Authentication failed. Please refresh the page and try again.');
                 return;
             }
             
@@ -1360,11 +1362,11 @@ class HangmanGame {
                 console.log('Test 4 - Update document:', `❌ Failed - ${error.code}: ${error.message}`);
             }
             
-            alert('Permission test completed! Check the browser console for detailed results.');
+            this.customAlert('Permission test completed! Check the browser console for detailed results.', 'success');
             
         } catch (error) {
             console.error('Permission test failed:', error);
-            alert('Permission test failed. Check the browser console for details.');
+            this.customAlert('Permission test failed. Check the browser console for details.', 'error');
         } finally {
             button.textContent = originalText;
             button.disabled = false;
@@ -1477,7 +1479,7 @@ class HangmanGame {
                 
                 // Show user-friendly message if called from admin panel
                 if (event && event.target) {
-                    alert(`✅ Cleaned up ${deletedCount} empty lobbies!`);
+                    this.customAlert(`Cleaned up ${deletedCount} empty lobbies!`, 'success');
                     // Refresh stats
                     this.loadDatabaseStats();
                 }
@@ -1486,7 +1488,7 @@ class HangmanGame {
                 
                 // Show user-friendly message if called from admin panel
                 if (event && event.target) {
-                    alert('✅ No empty lobbies found - database is clean!');
+                    this.customAlert('No empty lobbies found - database is clean!', 'success');
                 }
             }
             
@@ -1495,9 +1497,144 @@ class HangmanGame {
             
             // Show error message if called from admin panel
             if (event && event.target) {
-                alert('❌ Error cleaning up empty lobbies. Check console for details.');
+                this.customAlert('Error cleaning up empty lobbies. Check console for details.', 'error');
             }
         }
+    }
+
+    createCustomAlert() {
+        // Create custom alert modal
+        const alertHTML = `
+            <div id="customAlert" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 transform transition-all duration-300 scale-95 opacity-0" id="alertModal">
+                    <div class="p-6">
+                        <div class="flex items-center mb-4">
+                            <div id="alertIcon" class="mr-3 text-2xl">⚠️</div>
+                            <h3 id="alertTitle" class="text-lg font-semibold text-gray-900">Alert</h3>
+                        </div>
+                        <p id="alertMessage" class="text-gray-600 mb-6">This is a custom alert message.</p>
+                        <div class="flex justify-end space-x-3">
+                            <button id="alertCancel" class="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors hidden">
+                                Cancel
+                            </button>
+                            <button id="alertConfirm" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add to body if not already there
+        if (!document.getElementById('customAlert')) {
+            document.body.insertAdjacentHTML('beforeend', alertHTML);
+        }
+    }
+
+    showCustomAlert(message, title = 'Alert', type = 'info', showCancel = false) {
+        return new Promise((resolve) => {
+            const alertModal = document.getElementById('customAlert');
+            const modalContent = document.getElementById('alertModal');
+            const alertIcon = document.getElementById('alertIcon');
+            const alertTitle = document.getElementById('alertTitle');
+            const alertMessage = document.getElementById('alertMessage');
+            const alertCancel = document.getElementById('alertCancel');
+            const alertConfirm = document.getElementById('alertConfirm');
+
+            // Set content
+            alertTitle.textContent = title;
+            alertMessage.textContent = message;
+
+            // Set icon and colors based on type
+            switch (type) {
+                case 'success':
+                    alertIcon.textContent = '✅';
+                    alertConfirm.className = 'px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors';
+                    break;
+                case 'error':
+                    alertIcon.textContent = '❌';
+                    alertConfirm.className = 'px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors';
+                    break;
+                case 'warning':
+                    alertIcon.textContent = '⚠️';
+                    alertConfirm.className = 'px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors';
+                    break;
+                case 'info':
+                default:
+                    alertIcon.textContent = 'ℹ️';
+                    alertConfirm.className = 'px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors';
+                    break;
+            }
+
+            // Show/hide cancel button
+            if (showCancel) {
+                alertCancel.classList.remove('hidden');
+                alertCancel.textContent = 'Cancel';
+            } else {
+                alertCancel.classList.add('hidden');
+            }
+
+            // Show modal with animation
+            alertModal.classList.remove('hidden');
+            setTimeout(() => {
+                modalContent.classList.remove('scale-95', 'opacity-0');
+                modalContent.classList.add('scale-100', 'opacity-100');
+            }, 10);
+
+            // Event handlers
+            const handleConfirm = () => {
+                hideAlert();
+                resolve(true);
+            };
+
+            const handleCancel = () => {
+                hideAlert();
+                resolve(false);
+            };
+
+            const hideAlert = () => {
+                modalContent.classList.remove('scale-100', 'opacity-100');
+                modalContent.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => {
+                    alertModal.classList.add('hidden');
+                }, 300);
+            };
+
+            // Remove old event listeners
+            alertConfirm.replaceWith(alertConfirm.cloneNode(true));
+            alertCancel.replaceWith(alertCancel.cloneNode(true));
+
+            // Add new event listeners
+            document.getElementById('alertConfirm').addEventListener('click', handleConfirm);
+            document.getElementById('alertCancel').addEventListener('click', handleCancel);
+
+            // Close on backdrop click
+            alertModal.addEventListener('click', (e) => {
+                if (e.target === alertModal) {
+                    handleCancel();
+                }
+            });
+
+            // Close on Escape key
+            const handleEscape = (e) => {
+                if (e.key === 'Escape') {
+                    handleCancel();
+                    document.removeEventListener('keydown', handleEscape);
+                }
+            };
+            document.addEventListener('keydown', handleEscape);
+        });
+    }
+
+    // Custom alert function that replaces window.alert
+    customAlert(message, type = 'info') {
+        return this.showCustomAlert(message, 'Alert', type, false);
+    }
+
+    // Custom confirm function that replaces window.confirm
+    customConfirm(message, title = 'Confirm') {
+        return this.showCustomAlert(message, title, 'warning', true);
     }
 }
 
