@@ -780,7 +780,10 @@ class HangmanGame {
                     <div class="flex-1">
                         <!-- Game Status -->
                         <div class="text-center mb-6">
-                            <p class="text-lg text-gray-700">Current Turn: <span class="font-bold text-blue-600">${this.gameState.players[this.gameState.currentTurn]?.name || 'Unknown'}</span></p>
+                            ${Object.keys(this.gameState.players).length > 1 ? 
+                                `<p class="text-lg text-gray-700">Current Turn: <span class="font-bold text-blue-600">${this.gameState.players[this.gameState.currentTurn]?.name || 'Unknown'}</span></p>` : 
+                                ''
+                            }
                             <p class="text-lg text-gray-700">Your Guesses: <span class="font-bold text-red-600">${this.gameState.playerGuesses[this.currentPlayer?.id] || 0}</span> / 6</p>
                         </div>
                         
@@ -918,9 +921,14 @@ class HangmanGame {
 
                 // Determine next turn
                 const playerIds = Object.keys(data.players || {});
-                const currentIndex = Math.max(0, playerIds.indexOf(data.currentTurn));
-                const nextIndex = (currentIndex + 1) % Math.max(1, playerIds.length);
-                const nextTurn = playerIds[nextIndex] || data.currentTurn;
+                let nextTurn = data.currentTurn; // Default to current turn
+                
+                // Only rotate turns if there are multiple players
+                if (playerIds.length > 1) {
+                    const currentIndex = Math.max(0, playerIds.indexOf(data.currentTurn));
+                    const nextIndex = (currentIndex + 1) % playerIds.length;
+                    nextTurn = playerIds[nextIndex] || data.currentTurn;
+                }
 
                 // Determine status
                 const hasUnderscore = displayWord.includes('_');
@@ -1102,7 +1110,9 @@ class HangmanGame {
             },
             word: '',
             guessedLetters: [],
-            incorrectGuesses: 0,
+            playerGuesses: {
+                [this.currentPlayer.id]: 0
+            },
             displayWord: [],
             currentTurn: null,
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
