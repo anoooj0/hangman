@@ -25,9 +25,26 @@
     cursor: not-allowed;
 }
 
-/* Dark mode styles */
+/* Dark mode styles - True color inversion */
+.dark {
+    filter: invert(1) hue-rotate(180deg);
+}
+
+/* Fix images and other elements that shouldn't be inverted */
+.dark img,
+.dark video,
+.dark iframe,
+.dark canvas,
+.dark svg,
+.dark .no-invert {
+    filter: invert(1) hue-rotate(180deg);
+}
+
+/* Hangman drawing specific dark mode */
 .dark .hangman-drawing {
-    stroke: #d1d5db;
+    stroke: #374151;
+    stroke-width: 3;
+    fill: none;
 }
 
 .dark .game-button:hover {
