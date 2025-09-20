@@ -26,6 +26,9 @@ class HangmanGame {
         
         // Start periodic cleanup of empty lobbies
         this.startPeriodicCleanup();
+        
+        // Add keyboard shortcut for admin access (Ctrl+Shift+A)
+        this.setupAdminShortcut();
     }
 
     async updateAuthStatus() {
@@ -158,11 +161,6 @@ class HangmanGame {
                         <button onclick="game.showGameBrowser()" 
                                 class="w-full bg-purple-500 text-white py-2 px-4 rounded-md hover:bg-purple-600 game-button">
                             Browse Available Games
-                        </button>
-                        <div class="text-center text-gray-500">or</div>
-                        <button onclick="game.showAdminPanel()" 
-                                class="w-full bg-red-500 text-white py-2 px-4 rounded-md hover:bg-red-600 game-button">
-                            Admin Panel
                         </button>
                     </div>
                 </div>
@@ -1635,6 +1633,16 @@ class HangmanGame {
     // Custom confirm function that replaces window.confirm
     customConfirm(message, title = 'Confirm') {
         return this.showCustomAlert(message, title, 'warning', true);
+    }
+
+    setupAdminShortcut() {
+        // Add keyboard shortcut for admin access (Ctrl+Shift+A)
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+                e.preventDefault();
+                this.showAdminPanel();
+            }
+        });
     }
 }
 
