@@ -319,7 +319,7 @@ class HangmanGame {
                     <h2 class="text-2xl font-bold">Available Games</h2>
                     <button onclick="game.showLobby()" 
                             class="bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 game-button">
-                        Back to Lobby
+                        ← Back to Lobby
                     </button>
                 </div>
                 
@@ -550,7 +550,13 @@ class HangmanGame {
 
         gameContainer.innerHTML = `
             <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-2xl font-bold text-center mb-6">Waiting Room</h2>
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">Waiting Room</h2>
+                    <button onclick="game.leaveGame()" 
+                            class="bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 game-button">
+                        ← Back to Lobby
+                    </button>
+                </div>
                 <div class="text-center mb-6">
                     <p class="text-lg text-gray-700 mb-2">Game ID: <span class="font-mono font-bold text-blue-600">${gameId}</span></p>
                     <p class="text-sm text-gray-500">Share this ID with other players to join</p>
@@ -585,7 +591,13 @@ class HangmanGame {
         const gameContainer = document.getElementById('gameContainer');
         gameContainer.innerHTML = `
             <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-2xl font-bold text-center mb-6">Set the Word</h2>
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">Set the Word</h2>
+                    <button onclick="game.leaveGame()" 
+                            class="bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 game-button">
+                        ← Back to Lobby
+                    </button>
+                </div>
                 <div class="text-center mb-6">
                     <p class="text-lg text-gray-700 mb-4">Enter the word or phrase for players to guess:</p>
                     <input type="text" id="secretWord" placeholder="Enter word here" 
@@ -1358,6 +1370,45 @@ class HangmanGame {
         this.isAdmin = false;
         console.log('Admin logged out');
         this.showLobby();
+    }
+
+    async leaveGame() {
+        if (!this.currentGameId) {
+            this.showLobby();
+            return;
+        }
+
+        try {
+            const user = await this.waitForAuth();
+            if (user) {
+                // Remove player from the game
+                const gameRef = db.collection('games').doc(this.currentGameId);
+                await gameRef.update({
+                    [`players.${user.uid}`]: firebase.firestore.FieldValue.delete(),
+                    lastActivity: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                console.log('Left game:', this.currentGameId);
+            }
+        } catch (error) {
+            console.error('Error leaving game:', error);
+        } finally {
+            // Clean up local state
+            this.currentGameId = null;
+            this.currentPlayer = null;
+            this.gameState = {
+                status: 'lobby',
+                players: {},
+                word: '',
+                guessedLetters: [],
+                incorrectGuesses: 0,
+                displayWord: [],
+                currentTurn: null,
+                hostId: null
+            };
+            
+            // Return to lobby
+            this.showLobby();
+        }
     }
 }
 
