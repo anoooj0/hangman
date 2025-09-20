@@ -5,6 +5,8 @@ class HangmanGame {
             status: 'lobby',
             players: {},
             word: '',
+            category: '',
+            difficulty: '',
             guessedLetters: [],
             incorrectGuesses: 0,
             displayWord: [],
@@ -720,6 +722,8 @@ class HangmanGame {
             await db.collection('games').doc(gameId).update({
                 status: 'in-progress',
                 word: secretWord,
+                category: this.selectedCategory || 'mixed',
+                difficulty: this.selectedDifficulty || 'medium',
                 displayWord: displayArray,
                 currentTurn: firstTurn,
                 guessedLetters: [],
@@ -772,6 +776,20 @@ class HangmanGame {
                         <div class="text-center mb-6">
                             <p class="text-lg text-gray-700">Incorrect Guesses: <span class="font-bold text-red-600">${this.gameState.incorrectGuesses}</span> / 6</p>
                             <p class="text-lg text-gray-700">Current Turn: <span class="font-bold text-blue-600">${this.gameState.players[this.gameState.currentTurn]?.name || 'Unknown'}</span></p>
+                        </div>
+                        
+                        <!-- Category and Difficulty -->
+                        <div class="text-center mb-6">
+                            <div class="inline-flex items-center space-x-4 bg-gray-100 rounded-lg px-4 py-2">
+                                <div class="text-sm text-gray-600">
+                                    <span class="font-semibold">Category:</span> 
+                                    <span class="text-blue-600 font-bold capitalize">${this.gameState.category || 'Mixed'}</span>
+                                </div>
+                                <div class="text-sm text-gray-600">
+                                    <span class="font-semibold">Difficulty:</span> 
+                                    <span class="text-green-600 font-bold capitalize">${this.gameState.difficulty || 'Medium'}</span>
+                                </div>
+                            </div>
                         </div>
                         
                         <!-- Word Display -->
@@ -996,6 +1014,16 @@ class HangmanGame {
                     <h2 class="text-3xl font-bold text-center mb-6 text-green-600">🎉 You Win! 🎉</h2>
                     <div class="text-center mb-6">
                         <p class="text-xl text-gray-700 mb-4">The word was: <span class="font-bold text-blue-600">${this.gameState.word}</span></p>
+                        <div class="inline-flex items-center space-x-4 bg-gray-100 rounded-lg px-4 py-2 mb-4">
+                            <div class="text-sm text-gray-600">
+                                <span class="font-semibold">Category:</span> 
+                                <span class="text-blue-600 font-bold capitalize">${this.gameState.category || 'Mixed'}</span>
+                            </div>
+                            <div class="text-sm text-gray-600">
+                                <span class="font-semibold">Difficulty:</span> 
+                                <span class="text-green-600 font-bold capitalize">${this.gameState.difficulty || 'Medium'}</span>
+                            </div>
+                        </div>
                         <p class="text-lg text-gray-600">Great job guessing all the letters!</p>
                     </div>
                     <div class="text-center">
@@ -1012,6 +1040,16 @@ class HangmanGame {
                     <h2 class="text-3xl font-bold text-center mb-6 text-red-600"> Game Over 💀</h2>
                     <div class="text-center mb-6">
                         <p class="text-xl text-gray-700 mb-4">The word was: <span class="font-bold text-blue-600">${this.gameState.word}</span></p>
+                        <div class="inline-flex items-center space-x-4 bg-gray-100 rounded-lg px-4 py-2 mb-4">
+                            <div class="text-sm text-gray-600">
+                                <span class="font-semibold">Category:</span> 
+                                <span class="text-blue-600 font-bold capitalize">${this.gameState.category || 'Mixed'}</span>
+                            </div>
+                            <div class="text-sm text-gray-600">
+                                <span class="font-semibold">Difficulty:</span> 
+                                <span class="text-green-600 font-bold capitalize">${this.gameState.difficulty || 'Medium'}</span>
+                            </div>
+                        </div>
                         <p class="text-lg text-gray-600">Better luck next time!</p>
                     </div>
                     <div class="text-center">
