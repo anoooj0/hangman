@@ -973,7 +973,7 @@ class HangmanGame {
                             gameId, 
                             letter, 
                             isCorrect: word.includes(letter),
-                            incorrectGuesses 
+                            playerGuesses: currentPlayerGuesses 
                         });
                     }
                 }
