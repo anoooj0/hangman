@@ -1207,17 +1207,10 @@ class HangmanGame {
     async showAdminPanel() {
         // Check if user is already authenticated as admin
         if (!this.isAdmin) {
-            const password = prompt('Enter admin password:');
-            if (!password) {
-                return; // User cancelled
-            }
-            
-            // Simple password check - you can change this password
-            const adminPassword = 'himalayasMomoManager29'; // CHANGE THIS PASSWORD!
-            
-            if (password !== adminPassword) {
-                this.customAlert('Incorrect password. Access denied.', 'error');
-                return;
+            // Show admin login form instead of simple prompt
+            const loginResult = await this.showAdminLoginForm();
+            if (!loginResult) {
+                return; // User cancelled or failed authentication
             }
             
             // Set admin status for this session
@@ -1537,6 +1530,94 @@ class HangmanGame {
             button.textContent = originalText;
             button.disabled = false;
         }
+    }
+
+    async showAdminLoginForm() {
+        return new Promise((resolve) => {
+            const gameContainer = document.getElementById('gameContainer');
+            gameContainer.innerHTML = `
+                <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+                    <div class="text-center mb-6">
+                        <h2 class="text-2xl font-bold text-red-600">Admin Access</h2>
+                        <p class="text-sm text-gray-600">Enter your credentials to access admin panel</p>
+                    </div>
+                    
+                    <form id="adminLoginForm" class="space-y-4">
+                        <div>
+                            <label for="adminPassword" class="block text-sm font-medium text-gray-700 mb-1">
+                                Admin Password
+                            </label>
+                            <input type="password" id="adminPassword" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="Enter admin password" required>
+                        </div>
+                        
+                        <div>
+                            <label for="secretKey" class="block text-sm font-medium text-gray-700 mb-1">
+                                Secret Key
+                            </label>
+                            <input type="password" id="secretKey" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="Enter secret key" required>
+                        </div>
+                        
+                        <div class="flex space-x-3">
+                            <button type="submit" 
+                                    class="flex-1 bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors">
+                                Access Admin Panel
+                            </button>
+                            <button type="button" onclick="game.showLobby()" 
+                                    class="flex-1 bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 transition-colors">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <div class="mt-4 text-xs text-gray-500 text-center">
+                        <p>Contact administrator for credentials</p>
+                    </div>
+                </div>
+            `;
+            
+            // Handle form submission
+            document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const password = document.getElementById('adminPassword').value;
+                const secretKey = document.getElementById('secretKey').value;
+                
+                // Validate credentials using secret key
+                const isValid = await this.validateAdminCredentials(password, secretKey);
+                
+                if (isValid) {
+                    resolve(true);
+                } else {
+                    this.customAlert('Invalid credentials. Access denied.', 'error');
+                    // Clear form
+                    document.getElementById('adminPassword').value = '';
+                    document.getElementById('secretKey').value = '';
+                }
+            });
+        });
+    }
+
+    async validateAdminCredentials(password, secretKey) {
+        // Method 1: Use external secrets file (if loaded)
+        if (window.validateAdminAccess) {
+            return window.validateAdminAccess(password, secretKey);
+        }
+        
+        // Method 2: Use config file (if loaded)
+        if (window.ADMIN_CONFIG) {
+            return password === window.ADMIN_CONFIG.PASSWORD && 
+                   secretKey === window.ADMIN_CONFIG.SECRET_KEY;
+        }
+        
+        // Method 3: Fallback to hardcoded values (less secure)
+        const fallbackPassword = 'hangman_admin_2024';
+        const fallbackSecretKey = 'hangman_secret_2024';
+        
+        return password === fallbackPassword && secretKey === fallbackSecretKey;
     }
 
     logoutAdmin() {
